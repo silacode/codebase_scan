@@ -1,0 +1,44 @@
+/* Approved Paper foundations, file 01M4PMYSG09S0DP0VY19BWYA8P, tokens 4693999b. */
+@theme {
+  --color-background: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-border: #dfe5ee;
+  --color-border-strong: #7d8ba0;
+  --color-text: #14243b;
+  --color-text-secondary: #526176;
+  --color-text-muted: #627086;
+  --color-primary: #2454d6;
+  --color-primary-strong: #1b3fa8;
+  --color-primary-tint: #edf2ff;
+  --color-code-text: #e8eef8;
+  --color-code-muted: #a0aec3;
+  --color-critical: #c62a2f;
+  --color-critical-tint: #fbe8e6;
+  --color-critical-ink: #a31f25;
+  --color-high: #d8650f;
+  --color-high-tint: #fcebdd;
+  --color-high-ink: #a84b05;
+  --color-medium: #b98a00;
+  --color-medium-tint: #f8efcf;
+  --color-medium-ink: #7a5c00;
+  --color-low: #6c7c93;
+  --color-low-tint: #edf1f6;
+  --color-low-ink: #45566d;
+  --font-sans: Geist, 'Avenir Next', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 44px;
+  --text-4xl: 72px;
+  --breakpoint-md: 900px;
+  --container-content: 1200px;
+  --container-reading: 680px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+}

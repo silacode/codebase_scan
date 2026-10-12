@@ -1,0 +1,9 @@
+node_modules
+web/dist
+.vitest/
+test-results
+playwright-report
+package-lock.json
+docs
+plans
+test/fixtures

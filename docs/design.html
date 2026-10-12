@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Scan Review: requirements and architecture (v1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+<style>
+:root {
+  --paper: #F4F6F9; --sheet: #FFFFFF; --ink: #18202B; --muted: #536071; --rule: #D5DBE3; --head: #EBEFF4;
+  --api: #2B5C9E; --api-bg: #E6EEF8; --work: #2E7A4E; --work-bg: #E4F1E9; --db: #6A4E9E; --db-bg: #EEE9F6;
+  --ext: #A65A1C; --ext-bg: #F7ECE2; --opt: #7A8596; --opt-bg: #F0F2F5; --lim: #B3261E; --lim-bg: #FBE9E7;
+  --z1: #DDEFE3; --z2: #E3EBF7; --z3: #FAEFD9;
+  --sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--sans); font-variant-numeric: tabular-nums; }
+a { color: var(--api); }
+:focus-visible { outline: 2px solid var(--api); outline-offset: 2px; }
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; max-width: 1400px; margin: 0 auto; padding: 40px 28px 96px; }
+nav { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow: auto; font-size: 14px; }
+nav ol { list-style: none; margin: 0; padding: 0; }
+nav ol ol { padding-left: 12px; font-size: 13px; }
+nav a { display: block; padding: 3px 10px; border-left: 2px solid var(--rule); color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--ink); border-left-color: var(--api); }
+main { min-width: 0; }
+h1 { font-size: 2.125rem; line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.01em; }
+h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 12px; }
+h3 { font-size: 1.15rem; margin: 36px 0 8px; }
+h4 { font-size: 1rem; margin: 0 0 8px; }
+section { border-top: 1px solid var(--rule); padding: 32px 0 12px; }
+section, h3 { scroll-margin-top: 16px; }
+p, li, dd { max-width: 78ch; }
+.lede { font-size: 1.125rem; color: var(--muted); margin-top: 0; }
+.note { color: var(--muted); font-size: 14px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--head); padding: 1px 5px; border-radius: 3px; }
+.tw { overflow-x: auto; margin: 12px 0 20px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { padding: 8px 12px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { background: var(--head); font-weight: 600; }
+td.v { white-space: nowrap; font-weight: 600; }
+tr.total td { background: var(--head); font-weight: 600; }
+figure { margin: 16px 0 20px; padding: 18px 20px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; }
+figcaption { margin-top: 12px; font-size: 14px; color: var(--muted); max-width: 100ch; }
+.mermaid { text-align: center; }
+.mermaid:not([data-processed]) { white-space: pre; text-align: left; font: 12px/1.4 var(--mono); color: var(--muted); overflow-x: auto; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 20px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.grid2 ul, .panel ul { margin: 0; padding-left: 20px; }
+
+/* overview */
+.glance { margin: 20px 0; padding: 0; }
+.glance div { background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid var(--api); border-radius: 6px; padding: 12px 14px; }
+.glance dt { font-size: 13px; color: var(--muted); }
+.glance dd { margin: 4px 0 0; font-size: 1.25rem; font-weight: 700; line-height: 1.25; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; list-style: none; padding: 0; margin: 8px 0 0; font-size: 14px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 2px solid; vertical-align: -2px; margin-right: 6px; }
+.sw.ui { background: #fff; border-color: var(--ink); } .sw.api { background: var(--api-bg); border-color: var(--api); }
+.sw.work { background: var(--work-bg); border-color: var(--work); } .sw.db { background: var(--db-bg); border-color: var(--db); }
+.sw.ext { background: var(--ext-bg); border-color: var(--ext); } .sw.opt { background: var(--opt-bg); border-color: var(--opt); border-style: dashed; }
+.sw.lim { background: var(--lim-bg); border-color: var(--lim); }
+
+/* principles, journey */
+.pr { border-left: 4px solid var(--work); }
+.pr b { display: block; margin-bottom: 4px; }
+.journey { display: grid; grid-template-columns: 1fr 28px 1.5fr 28px 1fr; align-items: center; }
+.journey .arrow { text-align: center; font-size: 22px; color: var(--muted); }
+.journey .stack2 { display: grid; gap: 10px; }
+.journey .step ul { list-style: none; padding: 0; margin: 0; }
+.journey .step li { margin: 3px 0; }
+.fr { display: inline-block; min-width: 50px; font-weight: 700; color: var(--api); }
+.step.sys { border-left: 4px solid var(--work); }
+
+/* charts */
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 0 0 14px; padding: 0; list-style: none; }
+.chart-legend i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; vertical-align: 0; margin-right: 6px; }
+.plot { display: grid; grid-template-columns: minmax(150px, 250px) minmax(0, 1fr) minmax(130px, 190px); gap: 7px 14px; align-items: center; font-size: 14px; }
+.plot .lbl { text-align: right; }
+.plot .hd { font-size: 12px; color: var(--muted); }
+.plot .val { font-weight: 600; white-space: nowrap; }
+.track { position: relative; height: 24px; background: var(--head); border-radius: 3px; }
+.plot.lat .track { background: linear-gradient(to right, var(--z1) 0 33.333%, var(--z2) 33.333% 66.667%, var(--z3) 66.667%); }
+.track i { position: absolute; display: block; }
+.bar { top: 6px; height: 12px; min-width: 4px; background: var(--api); border-radius: 6px; }
+.bar.ok { background: var(--work); }
+.tick { top: 1px; height: 22px; width: 4px; margin-left: -2px; background: var(--ink); border-radius: 2px; }
+.dot { top: 4px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--api); border: 2px solid #fff; }
+.dot.lim { background: var(--lim); }
+.dot.dp { background: var(--ink); }
+.vline { top: -5px; bottom: -5px; border-left: 2px dashed var(--ink); opacity: 0.45; }
+.vline.lim { border-color: var(--lim); opacity: 0.9; }
+.axis { position: relative; height: 18px; font-size: 12px; color: var(--muted); }
+.axis b { position: absolute; font-weight: 400; white-space: nowrap; transform: translateX(-50%); }
+.axis b.l { transform: none; } .axis b.r { transform: translateX(-100%); }
+.meter { position: relative; height: 14px; background: var(--head); border-radius: 7px; margin: 8px 0 6px; }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--api); border-radius: 7px; }
+.meter .mark { position: absolute; top: -5px; bottom: -5px; border-left: 2px dashed var(--lim); }
+.stacks { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 10px 14px; align-items: center; font-size: 14px; }
+.stack { display: flex; height: 32px; border-radius: 4px; overflow: hidden; }
+.stack span { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; color: #fff; font-size: 12px; font-weight: 600; border-right: 1px solid rgba(255, 255, 255, 0.7); }
+.s-q { background: #8A94A6; } .s-f { background: #2B5C9E; } .s-s { background: #2E7A4E; } .s-e { background: #1D7680; }
+.s-c { background: repeating-linear-gradient(45deg, #6A4E9E 0 6px, #8A73B8 6px 12px); }
+.s-g { background: #3E5C26; } .s-a { background: repeating-linear-gradient(45deg, #A65A1C 0 6px, #C47D3F 6px 12px); } .s-p { background: #5C6B80; }
+.stack-legend { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 16px; list-style: none; padding: 0; margin: 14px 0 0; font-size: 13px; }
+.stack-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+
+/* linear flows */
+.strip { display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px 28px; list-style: none; margin: 0; padding: 0 0 0 4px; }
+.strip li { position: relative; display: flex; flex-direction: column; justify-content: center; background: var(--work-bg); border: 1px solid var(--work); border-radius: 6px; padding: 8px 14px; font-weight: 600; font-size: 15px; line-height: 1.3; max-width: 220px; }
+.strip li small { font-weight: 400; font-size: 13px; color: var(--muted); }
+.strip li + li::before { content: "→"; position: absolute; left: -22px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 400; }
+.strip li.in { background: var(--sheet); border-color: var(--ink); }
+.strip li.opt { background: var(--opt-bg); border: 1px dashed var(--opt); }
+.strip li.end { border-width: 2px; }
+
+/* admission gates */
+.gates { list-style: none; margin: 0; padding: 0; counter-reset: g; position: relative; }
+.gates::before { content: ""; position: absolute; left: 13px; top: 48px; bottom: 28px; border-left: 2px solid var(--rule); }
+.gates li { display: grid; grid-template-columns: 28px minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px 14px; align-items: center; padding: 5px 0; max-width: none; }
+.gates li::before { counter-increment: g; content: counter(g); position: relative; width: 28px; height: 28px; border-radius: 50%; background: var(--api); color: #fff; font: 700 13px/28px var(--sans); text-align: center; }
+.gates li.gh::before { display: none; }
+.gates li.gh b { font-size: 13px; font-weight: 600; color: var(--muted); }
+.gates li.pass::before { content: "✓"; background: var(--work); }
+.gates li.pass .gate { grid-column: span 2; background: var(--work-bg); border-color: var(--work); font-weight: 600; }
+.gate { background: var(--api-bg); border: 1px solid var(--api); border-radius: 6px; padding: 8px 12px; }
+.fail { display: flex; flex-wrap: wrap; gap: 6px; }
+.fail > span { background: var(--lim-bg); border: 1px solid var(--lim); border-radius: 4px; padding: 4px 10px; font-size: 14px; }
+.fail > span.ok { background: var(--work-bg); border-color: var(--work); }
+
+/* lists and boxes */
+.inv { counter-reset: inv; list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.inv li { counter-increment: inv; background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px 10px 48px; position: relative; max-width: none; }
+.inv li::before { content: counter(inv); position: absolute; left: 14px; top: 9px; width: 24px; height: 24px; border-radius: 50%; background: var(--work); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+.yes { color: var(--work); font-weight: 600; } .no { color: var(--lim); }
+.criteria h4 { color: var(--api); }
+.notes { border-left: 4px solid #B7791F; background: #FFFBF2; }
+.gloss { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: 8px 20px; margin: 12px 0; }
+.gloss dt { font-weight: 600; }
+.gloss dd { margin: 0; }
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; gap: 24px; }
+  nav { position: static; max-height: none; }
+  .grid2, .grid4, .inv, .stack-legend { grid-template-columns: 1fr; }
+  .journey { grid-template-columns: 1fr; }
+  .journey .arrow { transform: rotate(90deg); }
+  .plot { grid-template-columns: 1fr; }
+  .plot .lbl { text-align: left; }
+  .plot > .sp { display: none; }
+  .gloss { grid-template-columns: 1fr; }
+  .gates li { grid-template-columns: 28px minmax(0, 1fr); }
+  .gates li .fail, .gates li.gh b + b { grid-column: 2; }
+}
+@media print {
+  nav { display: none; }
+  .layout { display: block; padding: 0; }
+  figure, .tw, .panel { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav aria-label="Contents">
+  <ol>
+    <li><a href="#top">Overview</a></li>
+    <li><a href="#s1">1. Problem and principles</a></li>
+    <li><a href="#s2">2. Scope</a></li>
+    <li><a href="#s3">3. Functional requirements</a></li>
+    <li><a href="#s4">4. Capacity model</a></li>
+    <li><a href="#s5">5. Non-functional requirements</a>
+      <ol>
+        <li><a href="#s5-1">5.1 API latency</a></li>
+        <li><a href="#s5-2">5.2 User-perceived</a></li>
+        <li><a href="#s5-3">5.3 Scan time</a></li>
+        <li><a href="#s5-4">5.4 Concurrency</a></li>
+        <li><a href="#s5-5">5.5 Reliability</a></li>
+        <li><a href="#s5-6">5.6 Hard limits</a></li>
+        <li><a href="#s5-7">5.7 Quality</a></li>
+        <li><a href="#s5-8">5.8 Security</a></li>
+        <li><a href="#s5-9">5.9 Cost</a></li>
+        <li><a href="#s5-10">5.10 Observability</a></li>
+        <li><a href="#s5-11">5.11 Verification</a></li>
+      </ol>
+    </li>
+    <li><a href="#s6">6. Architecture</a></li>
+    <li><a href="#s7">7. Decisions</a></li>
+    <li><a href="#notes">Notes</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+  </ol>
+</nav>
+
+<main>
+<header id="top">
+  <h1>AI Scan Review: requirements and architecture (v1)</h1>
+  <p class="lede">This document gives the product contract, the architecture, and the targets for v1. We select the tools later (scanners, advisory sources, classifier, LLM). Each tool must agree with the criteria in section 7.</p>
+  <p class="note">Text style: Simplified Technical English (ASD-STE100) with short sentences, active voice, and one idea for each sentence. Technical names stay as they are. Full text: <a href="DESIGN.md">DESIGN.md</a>.</p>
+
+  <dl class="glance grid4">
+    <div><dt>Design point (peak load)</dt><dd>1,000 scans/h</dd></div>
+    <div><dt>One worker host</dt><dd>12 slots, ≥ 500 scans/h</dd></div>
+    <div><dt>Scan result, p95 (S / M / L)</dt><dd>60 s / 120 s / 300 s</dd></div>
+    <div><dt>Start a scan (POST), p95</dt><dd>800 ms</dd></div>
+    <div><dt>Progress event lag, p95</dt><dd>1 s</dd></div>
+    <div><dt>Internal failure rate</dt><dd>≤ 1% of scans</dd></div>
+    <div><dt>Worker crash to scan continued</dt><dd>≤ 60 s</dd></div>
+    <div><dt>AI cost</dt><dd>≤ $0.01 per scan</dd></div>
+  </dl>
+
+  <div class="panel">
+    <h4>How to read this page</h4>
+    <ul>
+      <li>Each section starts with a diagram. The table below the diagram gives the exact values.</li>
+      <li>“Must” gives a requirement. “Can” gives a possibility.</li>
+      <li>p50 means: 50 of 100 measurements are at this value or less. p95 means: 95 of 100. Refer to the <a href="#glossary">glossary</a> for other terms.</li>
+    </ul>
+    <ul class="legend" aria-label="Diagram colors">
+      <li><span class="sw ui"></span>User interface</li>
+      <li><span class="sw api"></span>API</li>
+      <li><span class="sw work"></span>Worker, or a good result</li>
+      <li><span class="sw db"></span>Database</li>
+      <li><span class="sw ext"></span>External service</li>
+      <li><span class="sw opt"></span>Optional part (dashed or striped)</li>
+      <li><span class="sw lim"></span>Limit, error, or problem</li>
+    </ul>
+  </div>
+</header>
+
+<!-- 1 -->
+<section id="s1">
+  <h2>1. Problem and product principles</h2>
+  <figure>
+    <div class="mermaid">
+flowchart LR
+  N["User need<br/>Am I exposed?<br/>What do I fix first?"]
+  P["Problem<br/>Hundreds of rows, many duplicates<br/>No context, sorted by CVSS only<br/>Users stop reading, nothing is fixed"]
+  R["Root cause<br/>Scanners report symptoms, not causes<br/>Severity is not the same as risk<br/>No link from a finding to an action"]
+  S["Product response<br/>Root-cause Issues<br/>Sorted by real risk<br/>Ordered action plan"]
+  N --&gt; P --&gt; R --&gt; S
+  classDef need fill:#FFFFFF,stroke:#18202B
+  classDef bad fill:#FBE9E7,stroke:#B3261E
+  classDef good fill:#E4F1E9,stroke:#2E7A4E
+  class N need
+  class P,R bad
+  class S good
+    </div>
+    <figcaption>The user wants a decision, not a dataset. The product changes scanner output into a short list of decisions.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th scope="row">User need</th><td>The user asks two questions: “Am I exposed?” and “What do I fix first?”. The user wants a decision, not a dataset.</td></tr>
+    <tr><th scope="row">Problem</th><td>A scanner gives hundreds of duplicate rows with no context. The scanner sorts the rows by CVSS. Users stop reading the report, and nobody fixes the problems.</td></tr>
+    <tr><th scope="row">Root cause</th><td>Scanners report symptoms (vulnerability × package × dependency path), not causes. Severity is not the same as risk. No finding has a link to an action.</td></tr>
+    <tr><th scope="row">Product response</th><td>Group the findings into root-cause <b>Issues</b> (problem, root cause, fix, evidence). Sort the Issues by real risk. Give the user an ordered action plan.</td></tr>
+  </table></div>
+
+  <figure>
+    <ol class="strip">
+      <li class="in">Raw findings<small>vulnerability × package × path</small></li>
+      <li>Merge duplicates<small>stable IDs, CVE = GHSA</small></li>
+      <li>Add exploit data<small>exploited? probability? fix?</small></li>
+      <li class="opt">Classify context<small>optional</small></li>
+      <li>Group by root cause<small>one Issue, one fix</small></li>
+      <li>Sort by real risk<small>fixed scoring formula</small></li>
+      <li class="end">Top 5 Issues<small>+ ordered action plan</small></li>
+    </ol>
+    <figcaption>From findings to Issues. A finding is one raw scanner row. An Issue is a group of findings with one root cause and one fix.</figcaption>
+  </figure>
+
+  <div class="grid2">
+    <div class="panel pr"><b>P1. Issues, not findings</b>Show Issues to the user. A finding is the evidence for an Issue.</div>
+    <div class="panel pr"><b>P2. Rules decide, the LLM explains</b>Rules and calibrated classifiers make the decisions. The LLM only explains them. You can switch off the LLM.</div>
+    <div class="panel pr"><b>P3. Each report is reproducible</b>Each report shows its source: commit SHA, scanner version, advisory-data time, and what was scanned and not scanned.</div>
+    <div class="panel pr"><b>P4. Degrade, do not fail</b>If an optional part fails, the user receives a partial result. The report shows which part is missing.</div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <h2>2. Scope (v1)</h2>
+  <div class="grid2">
+    <div class="panel" style="border-top: 3px solid var(--work)">
+      <h4>In v1</h4>
+      <ul>
+        <li>Public GitHub repositories, by URL. Optional branch, tag, or SHA. The server must have a GitHub token.</li>
+        <li>Dependency scan for one ecosystem: the npm lockfile. Secret, CI/CD-configuration, and code scanners connect through the same adapter contract.</li>
+        <li>Asynchronous scans, live progress, a report screen, and a React UI.</li>
+        <li>The system runs in containers. One command starts it on a local computer.</li>
+      </ul>
+    </div>
+    <div class="panel" style="border-top: 3px solid var(--opt)">
+      <h4>Not in v1 (next steps)</h4>
+      <ul>
+        <li>Authentication and multi-tenancy</li>
+        <li>Private repositories, and repository connection through a GitHub App</li>
+        <li>Rescans from pull requests, and differences between two scans</li>
+        <li>Pull requests that apply fixes automatically</li>
+        <li>Reachability analysis</li>
+        <li>Other ecosystems</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <h2>3. Functional requirements</h2>
+  <figure>
+    <div class="journey">
+      <div class="panel step"><h4>1. You submit</h4><ul>
+        <li><span class="fr">FR1</span>Submit a scan</li>
+        <li><span class="fr">FR2</span>Idempotent submit</li>
+        <li><span class="fr">FR3</span>One scan for each commit</li></ul></div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="stack2">
+        <div class="panel step"><h4>2a. You follow the progress</h4><ul>
+          <li><span class="fr">FR4</span>Lifecycle</li>
+          <li><span class="fr">FR5</span>Live progress</li>
+          <li><span class="fr">FR6</span>Cancel</li></ul></div>
+        <div class="panel step sys"><h4>2b. At the same time, the system analyzes</h4><ul>
+          <li><span class="fr">FR7</span>Scanner adapters</li>
+          <li><span class="fr">FR8</span>Normalize and merge</li>
+          <li><span class="fr">FR9</span>Exploit data</li>
+          <li><span class="fr">FR10</span>Context classification (optional)</li>
+          <li><span class="fr">FR11</span>Issues and priority</li></ul></div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="panel step"><h4>3. You review</h4><ul>
+        <li><span class="fr">FR12</span>Report</li>
+        <li><span class="fr">FR13</span>AI explanation (optional)</li>
+        <li><span class="fr">FR14</span>Browse findings</li></ul></div>
+    </div>
+    <figcaption>The 16 requirements on the user journey. FR15 (typed errors) and FR16 (web UI) apply to all steps.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>ID</th><th>Requirement</th><th>Acceptance criteria</th></tr>
+    <tr><td class="v">FR1</td><td>Submit a scan</td><td>The system accepts <code>github.com/{owner}/{repo}</code>, the <code>.git</code> form, and the <code>/tree/{ref}</code> form. It does all checks before it puts the scan in the queue. URL not correct → 400 <code>INVALID_URL</code>. Repository missing or private → 404 <code>REPO_NOT_FOUND</code>. Repository too large → 422 <code>REPO_TOO_LARGE</code>.</td></tr>
+    <tr><td class="v">FR2</td><td>Idempotent submit</td><td>The client can send an <code>Idempotency-Key</code> header. Same key and same body → the system sends the first response again. Same key and a different body → 422. First request still in progress → 409. The system keeps each key for 24 h.</td></tr>
+    <tr><td class="v">FR3</td><td>One scan for each commit</td><td>Maximum 1 active scan for each (repository, commit SHA, scanner version). The system uses a completed result again if it is less than 24 h old. Send <code>force=true</code> to scan again. The response shows <code>deduplicated</code> or <code>cached</code>.</td></tr>
+    <tr><td class="v">FR4</td><td>Lifecycle</td><td><code>queued → running(stage) → completed | failed | cancelled</code>. A partial result is <code>completed</code>, and the report lists the coverage gaps. Each accepted scan always gets to a terminal state.</td></tr>
+    <tr><td class="v">FR5</td><td>Follow the progress</td><td><code>GET</code> gives a snapshot. SSE gives a live stream. After a disconnection, the stream continues from <code>Last-Event-ID</code>. The user sees the stage, the percentage, the queue position, and a timeline in plain words.</td></tr>
+    <tr><td class="v">FR6</td><td>Cancel</td><td><code>POST /scans/:id/cancel</code>. The scan must change to <code>cancelled</code> in 10 s or less.</td></tr>
+    <tr><td class="v">FR7</td><td>Scanner adapters</td><td>All scanners use one adapter contract. Input: the workspace and the repository context. Output: normalized findings. Each adapter declares its category, timeout, and resource class. v1 has the dependency category.</td></tr>
+    <tr><td class="v">FR8</td><td>Normalize and merge</td><td>Each finding has a stable ID: a hash of type, advisory, package@version, and location. The system merges duplicate advisory IDs for one issue, for example a CVE and its GHSA.</td></tr>
+    <tr><td class="v">FR9</td><td>Exploit data</td><td>Each vulnerability shows a known-exploited flag, an exploit-probability score, fix available (yes or no), and the fixed version.</td></tr>
+    <tr><td class="v">FR10</td><td>Context classification (optional)</td><td>A classifier makes fuzzy decisions with confidence thresholds: file role, real or placeholder secret, repository type, impact class. Without the classifier, rules make these decisions. A suppressed finding stays visible, and the user can restore it.</td></tr>
+    <tr><td class="v">FR11</td><td>Issues and priority</td><td>Each Issue has a problem, a root cause, a fix (command, target version, effort), and evidence. A transitive vulnerability belongs to the direct dependency that brings it in. A fixed scoring formula sets the priority.</td></tr>
+    <tr><td class="v">FR12</td><td>Report</td><td>Verdict (risk level and headline), the top Issues (5 or fewer), an ordered action plan, statistics, coverage (scanned, not scanned, and why), and provenance.</td></tr>
+    <tr><td class="v">FR13</td><td>AI explanation (optional)</td><td>The output must agree with a schema. Each claim must refer to an Issue ID or a finding ID. If the AI fails or is too slow, the system uses template text. The report shows the label “AI-generated”.</td></tr>
+    <tr><td class="v">FR14</td><td>Browse findings</td><td>Pages of 100 findings or fewer. Filters: severity, category, prod or dev, suppressed.</td></tr>
+    <tr><td class="v">FR15</td><td>Typed errors</td><td>Each error has <code>{code, message, retryable}</code>. A repository with nothing to scan is <code>completed</code> with a coverage note. It is not an error.</td></tr>
+    <tr><td class="v">FR16</td><td>Web UI</td><td>React: submit → live progress → report. The link <code>?scan={id}</code> works after a page refresh.</td></tr>
+  </table></div>
+
+  <figure>
+    <div class="mermaid">
+flowchart LR
+  IN["Workspace +<br/>repository context"] --&gt; AC{{"Adapter contract<br/>category, timeout,<br/>resource class"}}
+  AC --&gt; DEP["Dependencies<br/>npm lockfile<br/>(v1)"]
+  AC -.-&gt; SEC["Secrets<br/>(later)"]
+  AC -.-&gt; CI["CI/CD configuration<br/>(later)"]
+  AC -.-&gt; CODE["Code<br/>(later)"]
+  DEP --&gt; NF["Normalized findings"]
+  SEC -.-&gt; NF
+  CI -.-&gt; NF
+  CODE -.-&gt; NF
+  classDef work fill:#E4F1E9,stroke:#2E7A4E
+  classDef opt fill:#F0F2F5,stroke:#7A8596,stroke-dasharray:4 3
+  class DEP work
+  class SEC,CI,CODE opt
+    </div>
+    <figcaption>FR7: one adapter contract. v1 has one adapter. Other scanner categories connect later without a change to the pipeline.</figcaption>
+  </figure>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <h2>4. Design point and capacity model</h2>
+  <p>All targets in this document come from these assumptions. If an assumption changes, calculate the targets again. After the first load test, replace the assumptions with measured values.</p>
+
+  <div class="tw"><table>
+    <tr><th>#</th><th>Assumption</th><th>Value</th><th>Basis</th></tr>
+    <tr><td class="v">A1</td><td>Peak demand (design point, DP)</td><td><b>1,000 scans/h</b> (≈ 10k scans/day, peak-to-average ratio 2.4)</td><td>60% of the first hard external limit (A6). This is the maximum that v1 can serve without a change to GitHub authentication. 40% stays as reserve.</td></tr>
+    <tr><td class="v">A2</td><td>Repository mix</td><td>70% S / 25% M / 5% L</td><td>Size classes in 5.3</td></tr>
+    <tr><td class="v">A3</td><td>Mean scan service time (W)</td><td>45 s</td><td>Weighted p50 targets from 5.3: 0.70 × 30 s + 0.25 × 60 s + 0.05 × 150 s = 43.5 s, rounded up</td></tr>
+    <tr><td class="v">A4</td><td>Resources for each scan</td><td>0.5 vCPU average. Hard limits: 1 GB RAM, 2 GB disk</td><td>Scans wait for network I/O most of the time.</td></tr>
+    <tr><td class="v">A5</td><td>Reference worker host</td><td>8 vCPU, 16 GB</td><td>A usual cloud instance size</td></tr>
+    <tr><td class="v">A6</td><td>GitHub REST calls for each scan</td><td>3 (resolve ref, metadata, archive download)</td><td>Token quota: <a href="https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api">5,000/h. Without a token: 60/h</a></td></tr>
+    <tr><td class="v">A7</td><td>AI tokens for each scan</td><td>≤ 8k input + 1k output</td><td>The top 25 Issues as structured context</td></tr>
+    <tr><td class="v">A8</td><td>API calls for each scan</td><td>1 POST + ~10 GET + 1 SSE (≤ 30 GET with polling)</td><td>The UI flow</td></tr>
+  </table></div>
+
+  <div class="grid2">
+    <figure>
+      <div class="mermaid">
+pie showData
+  title Repository mix (A2), percent of scans
+  "S (≤ 50 MB, ≤ 1k packages)" : 70
+  "M (≤ 250 MB, ≤ 5k packages)" : 25
+  "L (≤ 1 GB, ≤ 20k packages)" : 5
+      </div>
+    </figure>
+    <figure>
+      <div class="mermaid">
+xychart-beta
+  title "p95 queue wait at each slot utilization"
+  x-axis "Slot utilization ρ (12 slots, W = 45 s)" ["0.5", "0.6", "0.7", "0.8", "0.9"]
+  y-axis "p95 queue wait (s)" 0 --&gt; 100
+  bar [0, 4, 16, 38, 96]
+      </div>
+      <figcaption>Erlang C queue model (M/M/12). Values: 0 s, 4 s, 16 s, 38 s, 96 s. Above ρ = 0.6, the wait increases quickly. Thus, the target is ρ ≤ 0.6. The values at 0.5, 0.8, and 0.9 use the same model.</figcaption>
+    </figure>
+  </div>
+
+  <figure>
+    <div class="mermaid">
+flowchart LR
+  A5["Worker host (A5)<br/>8 vCPU, 16 GB"] --&gt; C["12 slots for each host<br/>RAM: (16 − 4) ÷ 1 GB = 12<br/>CPU: 8 × 0.75 ÷ 0.5 = 12"]
+  A4["One scan (A4)<br/>0.5 vCPU, 1 GB"] --&gt; C
+  C --&gt; U["Keep ρ ≤ 0.6<br/>p95 queue wait ≈ 4 s"]
+  U --&gt; T["One host<br/>0.6 × 12 ÷ 45 s ≈ 575 scans/h<br/>target ≥ 500 scans/h"]
+  A3["Mean scan time (A3)<br/>W = 45 s"] --&gt; T
+  T --&gt; H["2 hosts + 1 spare<br/>1,000 ÷ 500 = 2"]
+  A1["Design point (A1)<br/>1,000 scans/h"] --&gt; H
+  classDef work fill:#E4F1E9,stroke:#2E7A4E
+  classDef in fill:#FFFFFF,stroke:#536071
+  class C,U,T,H work
+  class A1,A3,A4,A5 in
+    </div>
+    <figcaption>How the number of hosts comes from the assumptions. White boxes are assumptions. Green boxes are calculated values.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Derived quantity</th><th>Formula</th><th>Result</th></tr>
+    <tr><td>Scan slots for each host (c)</td><td>min(RAM: (16 − 4 reserved) ÷ 1 GB, CPU: 8 × 0.75 ÷ 0.5)</td><td class="v">12</td></tr>
+    <tr><td>Maximum slot utilization (ρ)</td><td>Erlang C model (M/M/12, W = 45 s): ρ = 0.6 → p95 queue wait ≈ 4 s. ρ = 0.7 → ≈ 16 s.</td><td class="v">ρ ≤ 0.6</td></tr>
+    <tr><td>Sustained throughput for each host</td><td>ρ × c ÷ W</td><td><b>≈ 575/h → target ≥ 500/h</b></td></tr>
+    <tr><td>Burst ceiling for each host</td><td>c ÷ W</td><td>≈ 960/h (above this, the queue grows)</td></tr>
+    <tr><td>Worker hosts at DP</td><td>⌈1,000 ÷ 500⌉</td><td class="v">2, plus 1 spare</td></tr>
+    <tr><td>Mean number of concurrent scans at DP</td><td>Little's law: λ × W = 0.28/s × 45 s</td><td>≈ 12.5 of 24 slots</td></tr>
+    <tr><td>GitHub quota used at DP</td><td>3,000 ÷ 5,000</td><td>60% of one token. Alarm at 80%.</td></tr>
+    <tr><td>v1 throughput ceiling</td><td>5,000 ÷ 3</td><td><b>≈ 1,650 scans/h.</b> Above this, use GitHub App quotas for each customer.</td></tr>
+    <tr><td>Without a token</td><td>60 ÷ 3</td><td>20 scans/h for each server IP. Demo only.</td></tr>
+    <tr><td>API load at DP</td><td>11 calls × 0.28/s (31 calls with polling)</td><td>3 RPS (worst case ≈ 9)</td></tr>
+    <tr><td>Database writes at DP</td><td>~80 writes/scan × 0.28/s</td><td>≈ 22 writes/s</td></tr>
+    <tr><td>AI use at DP</td><td>9k tokens × 1,000/h</td><td>150k tokens/min. The LLM provider plan must accept this.</td></tr>
+    <tr><td>Storage</td><td>150 KB/scan × 10k/day × 30 days</td><td>≈ 45 GB</td></tr>
+  </table></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h4>GitHub quota at the design point</h4>
+      <div class="meter" role="img" aria-label="60 percent used, alarm at 80 percent"><span class="fill" style="width: 60%"></span><span class="mark" style="left: 80%"></span></div>
+      <p class="note">3,000 of 5,000 calls/h (60%). The dashed line is the alarm at 80%.</p>
+    </div>
+    <div class="panel">
+      <h4>Scan slots in use at the design point</h4>
+      <div class="meter" role="img" aria-label="12.5 of 24 slots in use, limit 60 percent"><span class="fill" style="width: 52.08%; background: var(--work)"></span><span class="mark" style="left: 60%"></span></div>
+      <p class="note">≈ 12.5 of 24 slots (2 hosts × 12 slots). The dashed line is ρ = 0.6.</p>
+    </div>
+  </div>
+
+  <h3>Load levels and limits</h3>
+  <figure>
+    <ul class="chart-legend">
+      <li><i style="background: var(--ink)"></i>Design point</li>
+      <li><i style="background: var(--work)"></i>One host: target to ceiling</li>
+      <li><i style="background: var(--lim)"></i>Hard limit</li>
+    </ul>
+    <div class="plot" data-min="10" data-max="20000" data-scale="log" role="img" aria-label="Throughput limits on a log scale">
+      <span class="lbl">No GitHub token (demo only)</span>
+      <span class="track"><i class="vline" data-at="1000"></i><i class="dot lim" data-at="20"></i></span>
+      <span class="val">20 scans/h</span>
+      <span class="lbl">One worker host</span>
+      <span class="track"><i class="vline" data-at="1000"></i><i class="bar ok" data-from="500" data-to="960"></i></span>
+      <span class="val">≥ 500/h to ≈ 960/h</span>
+      <span class="lbl">Design point (2 hosts + 1 spare)</span>
+      <span class="track"><i class="vline" data-at="1000"></i><i class="dot dp" data-at="1000"></i></span>
+      <span class="val">1,000 scans/h</span>
+      <span class="lbl">One GitHub token (v1 ceiling)</span>
+      <span class="track"><i class="vline" data-at="1000"></i><i class="dot lim" data-at="1650"></i></span>
+      <span class="val">≈ 1,650 scans/h</span>
+      <span class="lbl">Database and queue (next limit)</span>
+      <span class="track"><i class="vline" data-at="1000"></i><i class="dot lim" data-at="10000"></i></span>
+      <span class="val">≈ 10× DP</span>
+      <span class="sp"></span>
+      <span class="axis"><b class="l" data-at="10">10/h</b><b data-at="100">100/h</b><b data-at="1000">1,000/h</b><b data-at="10000">10,000/h</b></span>
+      <span class="sp"></span>
+    </div>
+    <figcaption>Logarithmic scale. One host cannot carry the design point alone. Thus, v1 uses 2 hosts and 1 spare. The design point is below the v1 ceiling of ≈ 1,650 scans/h. Section 6 gives the response to each limit.</figcaption>
+  </figure>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <h2>5. Non-functional requirements</h2>
+  <p>Measure all targets at design-point load. v1 measures them in a load test. Production measures them over 28 days.</p>
+
+  <h3 id="s5-1">5.1 API latency (measured on the server)</h3>
+  <figure>
+    <ul class="chart-legend">
+      <li><i style="background: var(--z1)"></i>Instant (≤ 0.1 s)</li>
+      <li><i style="background: var(--z2)"></i>Flow (≤ 1 s)</li>
+      <li><i style="background: var(--z3)"></i>Attention (≤ 10 s)</li>
+      <li><i style="background: var(--api); height: 8px"></i>p50 to p99</li>
+      <li><i style="background: var(--ink); width: 4px"></i>p95</li>
+      <li><i style="background: var(--api); width: 10px; border-radius: 50%"></i>One target value</li>
+    </ul>
+    <div class="plot lat" data-min="10" data-max="10000" data-scale="log" role="img" aria-label="API latency targets on a log scale">
+      <span class="sp"></span><span class="sp"></span><span class="hd">p50 / p95 / p99</span>
+      <span class="lbl"><code>POST /scans</code> new scan</span>
+      <span class="track"><i class="bar" data-from="300" data-to="2000"></i><i class="tick" data-at="800"></i></span>
+      <span class="val">300 / 800 / 2,000 ms</span>
+      <span class="lbl"><code>POST /scans</code> replay</span>
+      <span class="track"><i class="bar" data-from="20" data-to="100"></i><i class="tick" data-at="50"></i></span>
+      <span class="val">20 / 50 / 100 ms</span>
+      <span class="lbl"><code>GET /scans/:id</code></span>
+      <span class="track"><i class="bar" data-from="20" data-to="250"></i><i class="tick" data-at="100"></i></span>
+      <span class="val">20 / 100 / 250 ms</span>
+      <span class="lbl"><code>GET /scans/:id/findings</code></span>
+      <span class="track"><i class="bar" data-from="30" data-to="300"></i><i class="tick" data-at="150"></i></span>
+      <span class="val">30 / 150 / 300 ms</span>
+      <span class="lbl">SSE connect → first snapshot</span>
+      <span class="track"><i class="bar" data-from="50" data-to="500"></i><i class="tick" data-at="200"></i></span>
+      <span class="val">50 / 200 / 500 ms</span>
+      <span class="lbl">SSE event lag</span>
+      <span class="track"><i class="bar" data-from="200" data-to="2000"></i><i class="tick" data-at="1000"></i></span>
+      <span class="val">200 / 1,000 / 2,000 ms</span>
+      <span class="lbl">User: submit → first event</span>
+      <span class="track"><i class="dot" data-at="1000"></i></span>
+      <span class="val">p95 ≤ 1 s</span>
+      <span class="lbl">User: gap between events</span>
+      <span class="track"><i class="dot" data-at="10000"></i></span>
+      <span class="val">≤ 10 s</span>
+      <span class="sp"></span>
+      <span class="axis"><b class="l" data-at="10">10 ms</b><b data-at="100">100 ms</b><b data-at="1000">1 s</b><b class="r" data-at="10000">10 s</b></span>
+      <span class="sp"></span>
+    </div>
+    <figcaption>Logarithmic scale. The background shows the <a href="https://www.nngroup.com/articles/response-times-3-important-limits/">three human response-time limits</a>. All p95 values of the API are in the instant zone or in the flow zone.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Endpoint</th><th>p50</th><th>p95</th><th>p99</th><th>Why</th></tr>
+    <tr><td><code>POST /scans</code> (new scan)</td><td class="v">300 ms</td><td class="v">800 ms</td><td class="v">2 s</td><td>One GitHub round trip is included (timeout 1.5 s). Less than 1 s keeps the user in flow.</td></tr>
+    <tr><td><code>POST /scans</code> (idempotent replay)</td><td class="v">20 ms</td><td class="v">50 ms</td><td class="v">100 ms</td><td>Database lookup only</td></tr>
+    <tr><td><code>GET /scans/:id</code></td><td class="v">20 ms</td><td class="v">100 ms</td><td class="v">250 ms</td><td>0.1 s or less feels instant.</td></tr>
+    <tr><td><code>GET /scans/:id/findings</code> (≤ 100 items, ≤ 256 KB)</td><td class="v">30 ms</td><td class="v">150 ms</td><td class="v">300 ms</td><td>The payload has a limit.</td></tr>
+    <tr><td>SSE connect → first snapshot</td><td class="v">50 ms</td><td class="v">200 ms</td><td class="v">500 ms</td><td></td></tr>
+    <tr><td>SSE event lag (database commit → client)</td><td class="v">200 ms</td><td class="v">1 s</td><td class="v">2 s</td><td>1 s flow limit</td></tr>
+  </table></div>
+  <ul>
+    <li><b>API capacity:</b> ≥ 100 RPS for each instance at these latencies. This is 10 × the worst case at the design point.</li>
+    <li><b>SSE capacity:</b> ≥ 1,000 concurrent streams for each instance (≈ 50 KB each). Thus, SSE never sets the number of instances.</li>
+  </ul>
+
+  <h3 id="s5-2">5.2 User-perceived targets</h3>
+  <div class="tw"><table>
+    <tr><th>Metric</th><th>Target</th><th>Why</th></tr>
+    <tr><td>Submit → the progress screen shows the first event</td><td class="v">p95 ≤ 1 s</td><td>1 s flow limit</td></tr>
+    <tr><td>Longest gap between two events while the scan runs</td><td><b>≤ 10 s</b> (long stages send heartbeats)</td><td>10 s attention limit</td></tr>
+    <tr><td>Frontend response (75th percentile)</td><td><b>LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1</b></td><td>Google <a href="https://web.dev/articles/vitals">“good” Core Web Vitals</a></td></tr>
+  </table></div>
+
+  <h3 id="s5-3">5.3 Scan time-to-result (scan created → completed)</h3>
+  <p>The class of a repository is the larger of its two dimensions.</p>
+  <figure>
+    <ul class="chart-legend">
+      <li><i style="background: var(--api); height: 8px"></i>p50 to p95</li>
+      <li><i style="background: var(--lim); width: 3px"></i>Hard deadline (300 s)</li>
+    </ul>
+    <div class="plot" data-min="0" data-max="300" data-scale="lin" role="img" aria-label="Scan time-to-result for each size class">
+      <span class="sp"></span><span class="sp"></span><span class="hd">p50 / p95</span>
+      <span class="lbl">S: ≤ 50 MB, ≤ 1k packages</span>
+      <span class="track"><i class="vline lim" data-at="300"></i><i class="bar" data-from="30" data-to="60"></i></span>
+      <span class="val">30 s / 60 s</span>
+      <span class="lbl">M: ≤ 250 MB, ≤ 5k packages</span>
+      <span class="track"><i class="vline lim" data-at="300"></i><i class="bar" data-from="60" data-to="120"></i></span>
+      <span class="val">60 s / 120 s</span>
+      <span class="lbl">L: ≤ 1 GB, ≤ 20k packages</span>
+      <span class="track"><i class="vline lim" data-at="300"></i><i class="bar" data-from="150" data-to="300"></i></span>
+      <span class="val">150 s / 300 s</span>
+      <span class="lbl">Cache hit (same commit, &lt; 24 h)</span>
+      <span class="track"><i class="vline lim" data-at="300"></i><i class="dot" data-at="1"></i></span>
+      <span class="val">p95 ≤ 1 s</span>
+      <span class="sp"></span>
+      <span class="axis"><b class="l" data-at="0">0 s</b><b data-at="60">60 s</b><b data-at="120">120 s</b><b data-at="180">180 s</b><b data-at="240">240 s</b><b class="r" data-at="300">300 s</b></span>
+      <span class="sp"></span>
+    </div>
+    <figcaption>Linear scale. At 300 s, the scan stops and returns a partial result. The system rejects a repository larger than class L at submit.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Class</th><th>GitHub repository size / lockfile packages</th><th>p50</th><th>p95</th></tr>
+    <tr><td class="v">S</td><td>≤ 50 MB / ≤ 1k</td><td class="v">30 s</td><td class="v">60 s</td></tr>
+    <tr><td class="v">M</td><td>≤ 250 MB / ≤ 5k</td><td class="v">60 s</td><td class="v">120 s</td></tr>
+    <tr><td class="v">L</td><td>≤ 1 GB / ≤ 20k</td><td class="v">150 s</td><td><b>300 s</b> (hard deadline, then a partial result)</td></tr>
+    <tr><td class="v">Larger than L</td><td>The system rejects it at submit.</td><td>—</td><td>—</td></tr>
+    <tr><td class="v">Cache hit</td><td>Same commit, less than 24 h old</td><td>—</td><td class="v">≤ 1 s</td></tr>
+  </table></div>
+
+  <h4>Time budget for each stage (p95)</h4>
+  <figure>
+    <div class="stacks">
+      <span><b>S: 60 s</b></span>
+      <div class="stack" style="width: 50%" role="img" aria-label="Class S stage budgets, 60 seconds in total">
+        <span class="s-q" style="flex: 10" title="Queue wait: 10 s">10</span>
+        <span class="s-f" style="flex: 5" title="Fetch source: 5 s">5</span>
+        <span class="s-s" style="flex: 15" title="Scanners: 15 s">15</span>
+        <span class="s-e" style="flex: 2" title="Exploit enrichment: 2 s"></span>
+        <span class="s-c" style="flex: 5" title="Classify (optional): 5 s">5</span>
+        <span class="s-g" style="flex: 1" title="Group into Issues and prioritize: 1 s"></span>
+        <span class="s-a" style="flex: 20" title="AI explanation (optional): 20 s">20</span>
+        <span class="s-p" style="flex: 2" title="Persistence and events: 2 s"></span>
+      </div>
+      <span><b>M: 120 s</b></span>
+      <div class="stack" role="img" aria-label="Class M stage budgets, 120 seconds in total">
+        <span class="s-q" style="flex: 10" title="Queue wait: 10 s">10</span>
+        <span class="s-f" style="flex: 20" title="Fetch source: 20 s">20</span>
+        <span class="s-s" style="flex: 45" title="Scanners: 45 s">45</span>
+        <span class="s-e" style="flex: 2" title="Exploit enrichment: 2 s"></span>
+        <span class="s-c" style="flex: 10" title="Classify (optional): 10 s">10</span>
+        <span class="s-g" style="flex: 2" title="Group into Issues and prioritize: 2 s"></span>
+        <span class="s-a" style="flex: 25" title="AI explanation (optional): 25 s">25</span>
+        <span class="s-p" style="flex: 6" title="Persistence and events: 6 s">6</span>
+      </div>
+    </div>
+    <ul class="stack-legend">
+      <li><i class="s-q"></i>Queue wait: 10 / 10 s</li>
+      <li><i class="s-f"></i>Fetch source: 5 / 20 s</li>
+      <li><i class="s-s"></i>Scanners: 15 / 45 s</li>
+      <li><i class="s-e"></i>Exploit enrichment: 2 / 2 s</li>
+      <li><i class="s-c"></i>Classify (optional): 5 / 10 s</li>
+      <li><i class="s-g"></i>Group and prioritize: 1 / 2 s</li>
+      <li><i class="s-a"></i>AI explanation (optional): 20 / 25 s</li>
+      <li><i class="s-p"></i>Persistence and events: 2 / 6 s</li>
+    </ul>
+    <figcaption>Values are S / M. The two bars use the same scale. The striped stages are optional. The p95 budget of each stage is also its hard timeout. If a stage is late, the system marks it as partial and continues with the next stage.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Stage</th><th>S</th><th>M</th><th>Basis</th></tr>
+    <tr><td>Queue wait</td><td class="v">10 s</td><td class="v">10 s</td><td>ρ ≤ 0.6</td></tr>
+    <tr><td>Fetch source</td><td class="v">5 s</td><td class="v">20 s</td><td>Download at ≥ 25 MB/s</td></tr>
+    <tr><td>Scanners (in parallel, the slowest one counts)</td><td class="v">15 s</td><td class="v">45 s</td><td>A timeout for each adapter</td></tr>
+    <tr><td>Exploit enrichment</td><td class="v">2 s</td><td class="v">2 s</td><td>Local daily snapshot</td></tr>
+    <tr><td>Classify (optional)</td><td class="v">5 s</td><td class="v">10 s</td><td>≤ 200 calls, 20 at the same time, ≤ 0.5 s each</td></tr>
+    <tr><td>Group into Issues and prioritize</td><td class="v">1 s</td><td class="v">2 s</td><td>CPU work in the process</td></tr>
+    <tr><td>AI explanation (optional)</td><td class="v">20 s</td><td class="v">25 s</td><td>~1k output tokens. Timeout 30 s → template text</td></tr>
+    <tr><td>Persistence and events</td><td class="v">2 s</td><td class="v">6 s</td><td></td></tr>
+    <tr class="total"><td>Total (sum of the p95 values, conservative)</td><td>60 s</td><td>120 s</td><td></td></tr>
+  </table></div>
+
+  <h3 id="s5-4">5.4 Concurrency and throughput</h3>
+  <figure>
+    <ol class="gates">
+      <li class="gh"><span></span><b>Check, in this sequence</b><b>If the check fails</b></li>
+      <li><span class="gate">The URL format is correct</span><span class="fail"><span>400 <code>INVALID_URL</code></span></span></li>
+      <li><span class="gate">The <code>Idempotency-Key</code> is new</span><span class="fail"><span class="ok">Known, same body: the first response again</span><span>Known, other body: 422</span><span>Known, still in progress: 409</span></span></li>
+      <li><span class="gate">Client limits: ≤ 3 active scans, ≤ 10 submits/min</span><span class="fail"><span>429 + <code>Retry-After</code></span></span></li>
+      <li><span class="gate">Estimated queue wait ≤ 60 s (≤ 32 queued at DP)</span><span class="fail"><span>503 + <code>Retry-After</code></span></span></li>
+      <li><span class="gate">GitHub: the repository exists and its size is ≤ 1 GB</span><span class="fail"><span>404 <code>REPO_NOT_FOUND</code></span><span>422 <code>REPO_TOO_LARGE</code></span></span></li>
+      <li><span class="gate">No active or fresh scan for this scan key</span><span class="fail"><span class="ok">200 deduplicated or cached</span></span></li>
+      <li class="pass"><span class="gate">All checks pass: 202, new scan in the queue → workers (12 slots for each host) → outbound limiter (≤ 20 calls in flight for each GitHub token)</span></li>
+    </ol>
+    <figcaption>Each new request goes through these gates in this sequence. Cheap local checks come first. The GitHub call comes last, so that rejected requests do not use the GitHub quota.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Metric</th><th>Target</th></tr>
+    <tr><td>Throughput for each host</td><td><b>≥ 500 scans/h</b>, with p95 queue wait ≤ 10 s</td></tr>
+    <tr><td>Cluster at the design point</td><td><b>1,000 scans/h</b> (2 hosts + 1 spare)</td></tr>
+    <tr><td>Scale-out</td><td>≥ 90% linear for each added host, up to ≈ 1,650/h</td></tr>
+    <tr><td>Duplicate active scans for one scan key</td><td><b>0</b> (a unique constraint prevents them)</td></tr>
+    <tr><td>Limits for each client (by IP until there is authentication)</td><td>≤ 3 active scans, ≤ 10 submits/min → 429 + <code>Retry-After</code></td></tr>
+    <tr><td>Load shedding</td><td>Estimated queue wait &gt; 60 s (queued scans &gt; total slots × 60 s ÷ W, that is 32 at DP) → 503 + <code>Retry-After</code></td></tr>
+    <tr><td>Outbound calls</td><td>≤ 20 in flight for each GitHub token (the GitHub limit is 100). A rate limiter for each provider obeys <code>Retry-After</code>.</td></tr>
+  </table></div>
+
+  <h3 id="s5-5">5.5 Reliability</h3>
+  <figure>
+    <div class="mermaid">
+sequenceDiagram
+  participant A as Worker A
+  participant D as PostgreSQL
+  participant B as Worker B
+  A-&gt;&gt;D: Claim the scan (attempt 1, lease 30 s)
+  A-&gt;&gt;D: Heartbeat each 10 s extends the lease
+  A-&gt;&gt;D: Save the output of stages 1 and 2
+  Note over A: Worker A stops (crash)
+  Note over D: No heartbeat. The lease expires in 30 s or less.
+  B-&gt;&gt;D: Claim the scan (attempt 2)
+  B-&gt;&gt;D: Skip stages 1 and 2. Run stage 3.
+  A-xD: A late write with attempt 1 is rejected
+  B-&gt;&gt;D: Complete the scan (only if attempt = 2)
+  Note over A,B: From crash to continued scan: 60 s or less
+    </div>
+    <figcaption>A worker crash does not lose a scan. Another worker continues from the last saved stage. The attempt number stops a stale worker from writing over the result.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Metric</th><th>Target</th></tr>
+    <tr><td>Internal failure rate</td><td><b>≤ 1%</b> of accepted scans (user errors are not included)</td></tr>
+    <tr><td>Scans that fail because the AI or the classifier is not available</td><td><b>0.</b> The system uses the fallback and reports the fallback rate.</td></tr>
+    <tr><td>Worker crash → another worker continues the scan</td><td><b>≤ 60 s</b> (lease 30 s, heartbeat 10 s), from the last completed stage</td></tr>
+    <tr><td>Stuck scans (not terminal at deadline + 60 s)</td><td class="v">0</td></tr>
+    <tr><td>Data loss for accepted scans (RPO)</td><td><b>0.</b> The scan is in the database before the API sends 202.</td></tr>
+    <tr><td>Outbound calls</td><td>A timeout on each call. ≤ 3 attempts. Exponential backoff with jitter (0.5 s to 5 s).</td></tr>
+    <tr><td>Production availability target</td><td><b>99.9% each month</b> (≈ 43 min downtime) with ≥ 2 API instances. v1 runs on one node and gives no availability promise.</td></tr>
+  </table></div>
+
+  <h4>Invariants</h4>
+  <p>Each invariant must be true 100% of the time. Each invariant has an automated test.</p>
+  <ol class="inv">
+    <li>Each accepted scan gets to a terminal state.</li>
+    <li>Maximum 1 active scan for each scan key. Same idempotency key and same body → same scan ID.</li>
+    <li>The system does not lose or duplicate a progress event when a client connects again.</li>
+    <li>AI output never changes the severity, the priority, the fix command, or the version. The system shows these values from data.</li>
+    <li>The system never stores, returns, or logs a raw secret value.</li>
+    <li>Same commit + same scanner version + same advisory snapshot → the same findings, Issues, and ranking.</li>
+  </ol>
+
+  <h3 id="s5-6">5.6 Hard limits</h3>
+  <div class="tw"><table>
+    <tr><th>Limit</th><th>Value</th><th>Reason</th></tr>
+    <tr><td>Repository size (checked from GitHub metadata before the download)</td><td class="v">1 GB</td><td>Keeps the fetch time ≤ 40 s and sets a limit on disk use</td></tr>
+    <tr><td>Files scanned / size of one file</td><td class="v">100k / 5 MB</td><td>Sets a limit on scanner time. The system skips generated files and binary files.</td></tr>
+    <tr><td>Lockfile</td><td class="v">20 MB / 20k packages</td><td>Sets a limit on parse time</td></tr>
+    <tr><td>Scan wall-clock time</td><td class="v">300 s</td><td>After this time, the system returns a partial result.</td></tr>
+    <tr><td>RAM / disk / CPU for each scan</td><td class="v">1 GB / 2 GB / 1 vCPU</td><td>Slot size (A4)</td></tr>
+    <tr><td>Request body</td><td class="v">16 KB</td><td></td></tr>
+    <tr><td>Findings stored for each scan</td><td><b>5,000</b> (the system summarizes the remainder)</td><td>Storage and UI</td></tr>
+    <tr><td>Classifier calls for each scan</td><td><b>200</b> (highest rule-based scores first)</td><td>Latency and cost</td></tr>
+    <tr><td>AI context</td><td class="v">Top 25 Issues, ≤ 8k tokens</td><td>Cost, latency, and exposure to prompt injection</td></tr>
+    <tr><td>Result reuse period</td><td class="v">24 h</td><td>Advisory data changes each day.</td></tr>
+  </table></div>
+
+  <h3 id="s5-7">5.7 Quality</h3>
+  <div class="tw"><table>
+    <tr><th>Metric</th><th>Target</th></tr>
+    <tr><td>AI claims that refer to existing IDs</td><td><b>100%</b> (the output schema makes this necessary)</td></tr>
+    <tr><td>AI fallback rate</td><td><b>≤ 5%</b> (acceptance gate when we select the model and the prompt)</td></tr>
+    <tr><td>Precision of classifier auto-suppression</td><td><b>≥ 95%</b> on a labeled sample. Below that confidence → “needs review”.</td></tr>
+    <tr><td>Coverage disclosure</td><td><b>100%</b> of reports</td></tr>
+    <tr><td>KPIs (reported, not guaranteed)</td><td>Compression ratio from findings to Issues. Percentage of critical and high findings that the top 5 actions fix.</td></tr>
+  </table></div>
+
+  <h3 id="s5-8">5.8 Security</h3>
+  <ul>
+    <li><b>No execution.</b> Never install, build, or run repository code.</li>
+    <li><b>One sandbox for each scan.</b> No credentials. Resource limits from 5.6. Outbound traffic only to an allowlist.</li>
+    <li><b>No SSRF.</b> The system makes outbound URLs only from the parsed owner and repository name. It never uses the raw user input as a URL.</li>
+    <li><b>Secrets.</b> The adapter redacts secret values at its boundary.</li>
+    <li><b>LLM input.</b> Repository text goes to the LLM only as structured fields with length limits, after a prompt-injection screen.</li>
+    <li><b>Credentials.</b> Read them only from environment variables or a secret store. Never log them or return them.</li>
+  </ul>
+  <figure>
+    <ol class="gates">
+      <li class="gh"><span></span><b>Step, in this sequence</b><b>If the step fails</b></li>
+      <li><span class="gate">The adapter redacts secret values in the repository text (not trusted)</span><span></span></li>
+      <li><span class="gate">Structured fields with length limits: top 25 Issues, ≤ 8k tokens</span><span></span></li>
+      <li><span class="gate">Prompt-injection screen</span><span class="fail"><span>Suspicious: not sent to the LLM</span></span></li>
+      <li><span class="gate">LLM (optional), timeout 30 s</span><span class="fail"><span class="ok">Failure or timeout: template text</span></span></li>
+      <li><span class="gate">Output agrees with the schema, and all cited IDs exist</span><span class="fail"><span class="ok">No: template text</span></span></li>
+      <li class="pass"><span class="gate">Explanation text in the report, with the label “AI-generated”</span></li>
+    </ol>
+    <figcaption>The path of repository text to the LLM. Each check can stop the text. The severity, the priority, the fix command, and the version never come from the LLM. The system shows them from data (invariant 4).</figcaption>
+  </figure>
+
+  <h3 id="s5-9">5.9 Cost budgets</h3>
+  <p>These budgets set limits for the selection of tools and models.</p>
+  <div class="tw"><table>
+    <tr><th>Item</th><th>Budget</th><th>Reason</th></tr>
+    <tr><td>AI explanation</td><td class="v">≤ $0.01 per scan</td><td>100 free scans for each user each month cost ≤ $1.</td></tr>
+    <tr><td>Classifier</td><td class="v">≤ $0.001 per scan</td><td></td></tr>
+    <tr><td>Compute</td><td class="v">Host cost per hour ÷ 500</td><td></td></tr>
+  </table></div>
+
+  <h3 id="s5-10">5.10 Observability</h3>
+  <p>Each target in this document has a data source.</p>
+  <div class="tw"><table>
+    <tr><th>Source</th><th>What it gives</th></tr>
+    <tr><td>Stage timings</td><td>For each scan, each stage records its start, its end, and its outcome. Thus, SQL gives p50 and p95 for each size class directly.</td></tr>
+    <tr><td>API</td><td>Latency histograms for each route. SSE lag = send time − event time.</td></tr>
+    <tr><td>Gauges</td><td>Queue depth and the age of the oldest queued scan. Slot utilization. GitHub quota remaining (from <code>X-RateLimit-Remaining</code>). AI tokens per minute.</td></tr>
+    <tr><td>Counters</td><td>Terminal status × error code. Fallbacks. Cache hits and dedup hits. Idempotent replays.</td></tr>
+    <tr><td>Logs and endpoints</td><td>Structured JSON logs with the scan ID. <code>/healthz</code> and <code>/metrics</code> endpoints.</td></tr>
+  </table></div>
+
+  <h3 id="s5-11">5.11 Verification</h3>
+  <div class="tw"><table>
+    <tr><th>Test</th><th>Procedure</th><th>Pass criterion</th></tr>
+    <tr><td>Load test</td><td>Use stubbed GitHub and advisory APIs. Add latencies that agree with 5.3. Thus, the test measures only our platform: latency, throughput, queue wait, and SSE lag.</td><td>The targets in 5.1 to 5.4</td></tr>
+    <tr><td>Chaos test: worker</td><td>Stop a worker during a scan.</td><td>The scan continues in ≤ 60 s. No duplicate findings or events.</td></tr>
+    <tr><td>Chaos test: API</td><td>Restart the API.</td><td>SSE continues. 0 events lost.</td></tr>
+    <tr><td>Race test: submits</td><td>Send 50 identical submits at the same time.</td><td>1 scan</td></tr>
+    <tr><td>Race test: key reuse</td><td>Send one idempotency key with a different body.</td><td>422</td></tr>
+    <tr><td>Benchmark</td><td>Scan real public repositories in each size class.</td><td>Publish the measured p50 and p95 next to the targets in the README.</td></tr>
+  </table></div>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <h2>6. High-level architecture</h2>
+  <figure>
+    <div class="mermaid">
+flowchart TB
+  UI["React SPA<br/>submit, live progress, report"]
+  API["API service × N (stateless)<br/>validate, rate-limit, idempotency,<br/>commit dedup, reads, SSE"]
+  DB[("PostgreSQL<br/>system of record + work queue (row = job) + event log<br/>scans, scan_stages, scan_events, findings, issues, idempotency_keys,<br/>caches (exploit intel, advisories, AI outputs)")]
+  WK["Worker × M<br/>12 slots for each host<br/>one sandbox for each scan"]
+  GH["GitHub"]
+  INTEL["Advisory + exploit<br/>intel sources"]
+  CLS["Classifier API<br/>(optional)"]
+  LLM["LLM API<br/>(optional)"]
+  UI --&gt;|"POST /scans, GET /scans/:id, /findings,<br/>SSE /events, POST /cancel"| API
+  API --&gt;|"one transaction:<br/>key + scan + first event"| DB
+  DB -.-&gt;|"new-event notify"| API
+  DB &lt;--&gt;|"claim (SKIP LOCKED + lease),<br/>checkpoints, events"| WK
+  API --&gt;|"ref to SHA, metadata"| GH
+  WK --&gt; GH
+  WK --&gt; INTEL
+  WK -.-&gt; CLS
+  WK -.-&gt; LLM
+  classDef ui fill:#FFFFFF,stroke:#18202B
+  classDef api fill:#E6EEF8,stroke:#2B5C9E
+  classDef db fill:#EEE9F6,stroke:#6A4E9E
+  classDef work fill:#E4F1E9,stroke:#2E7A4E
+  classDef ext fill:#F7ECE2,stroke:#A65A1C
+  classDef opt fill:#F0F2F5,stroke:#7A8596,stroke-dasharray:4 3
+  class UI ui
+  class API api
+  class DB db
+  class WK work
+  class GH,INTEL ext
+  class CLS,LLM opt
+    </div>
+    <figcaption>The API and the workers do not talk directly. PostgreSQL is the record, the queue, and the event log. Thus, the API and the workers can scale independently.</figcaption>
+  </figure>
+  <figure>
+    <h4>Pipeline for each scan (in one worker slot)</h4>
+    <ol class="strip">
+      <li>resolve</li>
+      <li>fetch<small>sandbox</small></li>
+      <li>scanners<small>in parallel</small></li>
+      <li>normalize</li>
+      <li>enrich</li>
+      <li class="opt">classify<small>optional</small></li>
+      <li>Issues + prioritize</li>
+      <li class="opt">explain<small>optional</small></li>
+      <li class="end">publish</li>
+    </ol>
+    <figcaption>Each stage saves its output before the next stage starts. Section 5.3 gives the time budget for each stage.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <tr><th>Component</th><th>Responsibility</th><th>How it scales</th></tr>
+    <tr><td><span class="sw ui"></span>React SPA</td><td>Submit, live progress, report</td><td>Static files / CDN</td></tr>
+    <tr><td><span class="sw api"></span>API service</td><td>Validation, rate limits, idempotency, dedup for each commit, read endpoints, SSE</td><td>Add instances (stateless)</td></tr>
+    <tr><td><span class="sw db"></span>PostgreSQL</td><td>Durable state, the queue (one row for each job), event log, caches</td><td>Larger instance. Read replicas later.</td></tr>
+    <tr><td><span class="sw work"></span>Scan workers</td><td>Claim a scan, run the pipeline, save the progress after each stage, send heartbeats</td><td>Hosts × slots</td></tr>
+    <tr><td><span class="sw work"></span>Scanner adapters</td><td>Detection for each category, behind one contract</td><td>Add adapters. Heavy adapters move to a separate pool later.</td></tr>
+    <tr><td><span class="sw work"></span>Sandbox</td><td>Temporary workspace for each scan, with resource limits and an outbound allowlist</td><td>One for each slot</td></tr>
+    <tr><td><span class="sw ext"></span>Intel cache</td><td>Daily exploitability snapshot. Advisory cache by package@version.</td><td>Refresh job</td></tr>
+  </table></div>
+
+  <h3>Scan states</h3>
+  <figure>
+    <div class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --&gt; queued: POST accepted (202)
+  queued --&gt; running: a worker claims it
+  running --&gt; running: next stage
+  running --&gt; completed: all stages done
+  running --&gt; failed: typed error after ≤ 3 attempts
+  queued --&gt; cancelled: cancel
+  running --&gt; cancelled: cancel (≤ 10 s)
+  completed --&gt; [*]
+  failed --&gt; [*]
+  cancelled --&gt; [*]
+    </div>
+    <figcaption>Each scan ends in one of three terminal states: completed, failed, or cancelled. A partial result is also completed, and the report lists the coverage gaps. If a lease expires, another worker claims the scan (attempt + 1) and continues from the last saved stage.</figcaption>
+  </figure>
+
+  <h3>Key flows</h3>
+    <figure>
+      <h4>1. Submit</h4>
+      <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as React UI
+  participant A as API
+  participant G as GitHub
+  participant D as PostgreSQL
+  U-&gt;&gt;A: POST /api/scans + Idempotency-Key
+  A-&gt;&gt;A: Validate the URL (400 if not correct)
+  A-&gt;&gt;D: Find the idempotency key
+  alt The key exists
+    A--&gt;&gt;U: The first response again
+  else New key
+    par Ref
+      A-&gt;&gt;G: Resolve the ref to a commit SHA
+    and Metadata
+      A-&gt;&gt;G: Read metadata (exists? size?)
+    end
+    A-&gt;&gt;D: One transaction: key + scan + first event
+    alt Active scan for the same scan key
+      A--&gt;&gt;U: 200 with the existing scan
+    else
+      A--&gt;&gt;U: 202 + Location header
+    end
+  end
+      </div>
+      <figcaption>The API resolves the commit SHA before it accepts the scan. Thus, “not found” and “too large” errors come immediately, and dedup is exact for each commit.</figcaption>
+    </figure>
+    <figure>
+      <h4>2. Execute</h4>
+      <div class="mermaid">
+sequenceDiagram
+  participant W as Worker
+  participant D as PostgreSQL
+  participant X as External services
+  W-&gt;&gt;D: Claim the oldest claimable scan (FOR UPDATE SKIP LOCKED, lease 30 s)
+  loop Each stage
+    alt The stage output is saved
+      W-&gt;&gt;W: Skip the stage
+    else Not saved
+      W-&gt;&gt;X: Run the stage with its timeout
+      W-&gt;&gt;D: Save the output and send an event
+    end
+    W-&gt;&gt;D: Check the cancel flag
+  end
+  Note over W,D: Each 10 s heartbeat also checks the cancel flag
+  W-&gt;&gt;D: Finish only if the attempt number did not change
+      </div>
+      <figcaption>Each stage saves its output. A retry skips the saved stages. A stale worker cannot write over the result.</figcaption>
+    </figure>
+  <figure>
+    <h4>3. Observe</h4>
+    <div class="mermaid">
+sequenceDiagram
+  participant U as Browser
+  participant A as API
+  participant D as PostgreSQL
+  U-&gt;&gt;A: GET /api/scans/:id/events (Last-Event-ID 41)
+  A-&gt;&gt;D: Read the events with seq &gt; 41
+  A--&gt;&gt;U: Events 42 to n (event id = seq)
+  D-)A: New-event notify
+  A--&gt;&gt;U: Next event
+  Note over U,A: The connection drops.<br/>The browser connects again with the last seq.<br/>No event is lost or duplicated.
+  A--&gt;&gt;U: Terminal event, then the stream closes
+    </div>
+    <figcaption>SSE first sends the missed events, then the new events. GET returns the same state after a page refresh or for polling.</figcaption>
+  </figure>
+
+  <h3>Data model</h3>
+  <figure>
+    <div class="mermaid">
+erDiagram
+  scans ||--o{ scan_stages : "has"
+  scans ||--o{ scan_events : "emits"
+  scans ||--o{ findings : "has"
+  scans ||--o{ issues : "has"
+  issues }o--o{ findings : "groups"
+  idempotency_keys }o--|| scans : "points to"
+  scans {
+    uuid id PK
+    text scan_key UK "unique while active"
+    text status
+    int attempt
+    timestamptz lease_until
+    text worker
+    jsonb provenance
+    jsonb report_summary
+  }
+  scan_stages {
+    uuid scan_id PK, FK
+    text stage PK
+    jsonb output
+    timestamptz started_at
+    timestamptz ended_at
+  }
+  scan_events {
+    uuid scan_id PK, FK
+    int seq PK
+    text message
+  }
+  findings {
+    uuid scan_id PK, FK
+    text finding_id PK
+    jsonb evidence
+    jsonb enrichment
+    jsonb classification
+  }
+  issues {
+    uuid scan_id PK, FK
+    text issue_id PK
+    text problem
+    text root_cause
+    jsonb fix
+    jsonb finding_ids
+    numeric priority
+  }
+  idempotency_keys {
+    text key PK
+    text request_hash
+    uuid scan_id FK
+    jsonb response
+    timestamptz expires_at "24 h TTL"
+  }
+    </div>
+  </figure>
+  <div class="tw"><table>
+    <tr><th>Table</th><th>Key</th><th>Purpose</th></tr>
+    <tr><td><code>scans</code></td><td><code>id</code>. <code>scan_key</code> is unique among active scans.</td><td>Lifecycle, lease (<code>attempt</code>, <code>lease_until</code>, <code>worker</code>), provenance, report summary</td></tr>
+    <tr><td><code>scan_stages</code></td><td>(<code>scan_id</code>, <code>stage</code>)</td><td>Saved stage output and timings. Also the data source for latency.</td></tr>
+    <tr><td><code>scan_events</code></td><td>(<code>scan_id</code>, <code>seq</code>)</td><td>Progress timeline. SSE uses it to continue after a disconnection.</td></tr>
+    <tr><td><code>findings</code></td><td>(<code>scan_id</code>, <code>finding_id</code>)</td><td>Normalized evidence, enrichment, classification</td></tr>
+    <tr><td><code>issues</code></td><td>(<code>scan_id</code>, <code>issue_id</code>)</td><td>Problem, root cause, fix, finding IDs, priority</td></tr>
+    <tr><td><code>idempotency_keys</code></td><td><code>key</code></td><td>Request hash → scan ID and response. TTL 24 h.</td></tr>
+  </table></div>
+
+  <h3>API endpoints</h3>
+  <div class="tw"><table>
+    <tr><th>Endpoint</th><th>Returns</th></tr>
+    <tr><td><code>POST /api/scans</code> <code>{repoUrl, ref?, force?}</code> + <code>Idempotency-Key</code></td><td>202 new scan. 200 deduplicated or cached. Errors: 400, 404, 409, 422, 429, 503.</td></tr>
+    <tr><td><code>GET /api/scans/:id</code></td><td>Status, stage, progress, queue position, report summary</td></tr>
+    <tr><td><code>GET /api/scans/:id/findings?cursor&amp;filters</code></td><td>Findings, in pages</td></tr>
+    <tr><td><code>GET /api/scans/:id/events</code></td><td>SSE stream. It can continue after a disconnection.</td></tr>
+    <tr><td><code>POST /api/scans/:id/cancel</code></td><td>202</td></tr>
+    <tr><td><code>GET /api/healthz</code>, <code>/api/metrics</code></td><td>Operations</td></tr>
+  </table></div>
+
+  <h3>Scaling path</h3>
+  <p>The chart in section 4 shows where each limit is. This table gives the response to each limit.</p>
+  <div class="tw"><table>
+    <tr><th>Load</th><th>First bottleneck</th><th>Response</th></tr>
+    <tr><td class="v">&gt; 20 scans/h</td><td>GitHub quota without a token</td><td>Server token (required configuration)</td></tr>
+    <tr><td class="v">&gt; ~1,650 scans/h</td><td>Quota of one token</td><td>GitHub App tokens: 5k to 12.5k/h for each customer installation</td></tr>
+    <tr><td>AI demand above the provider tokens/min limit</td><td>LLM quota</td><td>Rate limiter → template fallback. The throughput does not change.</td></tr>
+    <tr><td class="v">~10× design point</td><td>Database writes, queue contention</td><td>Partition the event table. Use a dedicated queue broker. Add read replicas.</td></tr>
+    <tr><td>Heavy analyzers</td><td>CPU and RAM</td><td>A separate heavy queue and worker pool</td></tr>
+  </table></div>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <h2>7. Decisions and trade-offs</h2>
+  <div class="tw"><table>
+    <tr><th>Decision</th><th>Choice</th><th>Alternative (rejected)</th><th>Why</th></tr>
+    <tr><td>Execution</td><td class="yes">Async job + progress stream</td><td class="no">Synchronous request</td><td>Scans take 30 to 300 s.</td></tr>
+    <tr><td>Queue</td><td class="yes">PostgreSQL row as the job (<code>SKIP LOCKED</code> + lease)</td><td class="no">Redis queue, workflow engine</td><td>One dependency. The job and the idempotency key go in the same transaction, so they cannot disagree. The design point needs &lt; 1 claim/s.</td></tr>
+    <tr><td>Progress transport</td><td class="yes">SSE + snapshot GET</td><td class="no">WebSocket, polling only</td><td>Data goes in one direction. Reconnect and continue are built in.</td></tr>
+    <tr><td>Resolve the ref to a SHA</td><td class="yes">Synchronously, in POST</td><td class="no">In the worker</td><td>Immediate “not found” and “too large” errors. Exact dedup for each commit. Cost: ≤ 0.8 s at p95.</td></tr>
+    <tr><td>Who decides the risk</td><td class="yes">Rules + classifier. The LLM only explains.</td><td class="no">The LLM decides</td><td>Reproducible, auditable, no invented risks</td></tr>
+    <tr><td>Result reuse</td><td class="yes">For each commit, 24 h</td><td class="no">Always scan again</td><td>Cost and latency. Advisory data changes each day.</td></tr>
+    <tr><td>Source access</td><td class="yes">Read-only fetch into a sandbox</td><td class="no">Clone, install, and build</td><td>The system never runs code that is not trusted.</td></tr>
+    <tr><td>AI stage</td><td class="yes">Inline, with a 30 s timeout</td><td class="no">Publish the report first, add the AI text later</td><td>Simpler. If the AI stage uses most of the time-to-result, add a <code>report_ready</code> milestone.</td></tr>
+  </table></div>
+
+  <h3>Tool decisions for later</h3>
+  <p>Each candidate tool must satisfy all criteria in its box.</p>
+  <div class="grid4 criteria">
+    <div class="panel"><h4>Scanner adapters</h4><ul>
+      <li>The license allows commercial SaaS use.</li>
+      <li>It never runs repository code.</li>
+      <li>Machine-readable output.</li>
+      <li>≤ 45 s p95 and ≤ 1 GB on M-class repositories.</li></ul></div>
+    <div class="panel"><h4>Advisory and exploit-intel sources</h4><ul>
+      <li>The terms allow commercial use.</li>
+      <li>Refresh at least each day.</li>
+      <li>Batch lookups.</li></ul></div>
+    <div class="panel"><h4>Classifier</h4><ul>
+      <li>Typed outputs with calibrated confidence.</li>
+      <li>≤ 0.5 s p95.</li>
+      <li>≤ $0.001 per scan.</li></ul></div>
+    <div class="panel"><h4>LLM</h4><ul>
+      <li>JSON-schema output.</li>
+      <li>≤ 20 s p95 for ~1k output tokens.</li>
+      <li>≥ 150k tokens/min.</li>
+      <li>≤ $0.01 per scan.</li></ul></div>
+  </div>
+</section>
+
+<section id="notes">
+  <h2>Notes</h2>
+  <div class="panel notes">
+    <ul>
+      <li>The capacity numbers come from the assumptions A1 to A8. The most important assumptions are the 45 s mean scan time and 0.5 vCPU / 1 GB for each scan.</li>
+      <li>The queue model supposes more regular scan times than real repositories have. Thus, the real tail wait times are probably longer than these values.</li>
+      <li>After the first load test, replace the assumptions and the model values with measured values.</li>
+      <li>The 3-hour build covers a part of this design: one host and one scanner category. In the presentation, show these values as design targets, with the measured results next to them.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="glossary">
+  <h2>Glossary</h2>
+  <dl class="gloss">
+    <dt>Finding</dt><dd>One raw result from a scanner, for example one vulnerability in one package version.</dd>
+    <dt>Issue</dt><dd>A group of findings with one root cause and one fix.</dd>
+    <dt>Design point (DP)</dt><dd>The peak load that the design must carry: 1,000 scans/h.</dd>
+    <dt>p50, p95, p99</dt><dd>50, 95, or 99 of 100 measurements are at this value or less.</dd>
+    <dt>Slot</dt><dd>The capacity for one scan on a worker host: maximum 1 vCPU, 1 GB RAM, and 2 GB disk.</dd>
+    <dt>W (service time)</dt><dd>The mean time that one scan uses a slot: 45 s.</dd>
+    <dt>ρ (utilization)</dt><dd>The part of the slots that is in use. 0.6 = 60%.</dd>
+    <dt>Erlang C (M/M/c)</dt><dd>A standard queue model. It calculates the queue wait from the number of slots (c), W, and ρ.</dd>
+    <dt>Little's law</dt><dd>Mean number of scans in the system = arrival rate × mean time in the system.</dd>
+    <dt>RPS</dt><dd>Requests per second.</dd>
+    <dt>Idempotency key</dt><dd>A unique value from the client. The server uses it to find a repeated request.</dd>
+    <dt>Scan key</dt><dd>(repository, commit SHA, scanner version). Maximum 1 active scan for each scan key.</dd>
+    <dt>Lease and heartbeat</dt><dd>A worker holds a scan for 30 s. It extends the lease each 10 s. If the lease expires, another worker can claim the scan.</dd>
+    <dt>SKIP LOCKED</dt><dd>A PostgreSQL option. Each worker claims a different row, and no worker waits for another worker.</dd>
+    <dt>SSE</dt><dd>Server-sent events: a one-direction HTTP stream from the server to the browser. The browser connects again automatically and sends <code>Last-Event-ID</code>.</dd>
+    <dt>Load shedding</dt><dd>The API refuses new scans (503) when the queue is too long.</dd>
+    <dt>Fallback</dt><dd>A simpler method that the system uses when an optional part fails, for example template text instead of AI text.</dd>
+    <dt>RPO</dt><dd>Recovery point objective: the maximum data loss after a failure. Here: 0.</dd>
+    <dt>LCP, INP, CLS</dt><dd>Core Web Vitals: load time of the largest content, response time to user input, and visual stability.</dd>
+  </dl>
+</section>
+</main>
+</div>
+
+<script>
+// Place chart marks: data-at = point, data-from/data-to = range, on a log or linear axis.
+for (const p of document.querySelectorAll('.plot')) {
+  const lo = +p.dataset.min, hi = +p.dataset.max, log = p.dataset.scale === 'log';
+  const f = v => log ? Math.log10(v / lo) / Math.log10(hi / lo) : (v - lo) / (hi - lo);
+  const pct = v => (Math.min(1, Math.max(0, f(v))) * 100).toFixed(2) + '%';
+  for (const e of p.querySelectorAll('[data-at]')) e.style.left = pct(+e.dataset.at);
+  for (const e of p.querySelectorAll('[data-from]')) {
+    e.style.left = pct(+e.dataset.from);
+    e.style.width = `calc(${pct(+e.dataset.to)} - ${pct(+e.dataset.from)})`;
+  }
+}
+</script>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.esm.min.mjs';
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  themeVariables: {
+    fontFamily: '"Atkinson Hyperlegible Next", system-ui, sans-serif',
+    fontSize: '14px',
+    primaryColor: '#FFFFFF', primaryBorderColor: '#536071', primaryTextColor: '#18202B',
+    lineColor: '#536071', secondaryColor: '#EBEFF4', tertiaryColor: '#F4F6F9',
+    noteBkgColor: '#FFF6E0', noteBorderColor: '#B7791F',
+    actorBkg: '#E6EEF8', actorBorder: '#2B5C9E',
+    pie1: '#2B5C9E', pie2: '#2E7A4E', pie3: '#A65A1C',
+    xyChart: { plotColorPalette: '#2B5C9E' },
+  },
+  flowchart: { curve: 'basis', wrappingWidth: 360 },
+  sequence: { mirrorActors: false },
+});
+await mermaid.run({ querySelector: '.mermaid' });
+</script>
+</body>
+</html>
