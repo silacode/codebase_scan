@@ -35,16 +35,21 @@ export function verdict(findings: Finding[], issues: Issue[]) {
           ? 'low'
           : 'clean';
   const exploited = findings.filter((f) => f.exploit?.kev).length;
+  const exploitText = findings.some((f) => f.exploit?.kev == null)
+    ? exploited
+      ? `At least ${exploited} listed in CISA KEV (incomplete coverage)`
+      : 'Known exploitation status unavailable'
+    : `${exploited} listed in CISA KEV`;
   const groups = groupFixes(issues);
   const projects = new Set(issues.map((issue) => issue.lockfile)).size;
   const actionable = groups.filter((group) => group[0].fix.kind !== 'no_fix').length;
   const headline =
     `${riskLevel[0].toUpperCase() + riskLevel.slice(1)} risk: ` +
-    `${groups.length} distinct fix${groups.length === 1 ? '' : 'es'} in ${counted(projects, 'project')}, ${exploited} known to be exploited`;
+    `${groups.length} distinct fix${groups.length === 1 ? '' : 'es'} in ${counted(projects, 'project')}, ${exploitText}`;
   return {
     riskLevel,
     headline,
-    summary: `${counted(findings.length, 'finding')} in ${counted(issues.length, 'issue')} across ${counted(projects, 'project')}; ${exploited} known exploited. ${counted(actionable, 'actionable fix group')}.`,
+    summary: `${counted(findings.length, 'finding')} in ${counted(issues.length, 'issue')} across ${counted(projects, 'project')}; ${exploitText}. ${counted(actionable, 'actionable fix group')}.`,
   };
 }
 /** The five fix groups with the highest-priority members; extras are listed in `alsoIn`. */

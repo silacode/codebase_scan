@@ -31,7 +31,7 @@ export async function enrich(findings: Finding[], ctx: ScanContext) {
       ),
     ),
   ];
-  let kev = new Set<string>();
+  let kev: Set<string> | undefined;
   try {
     const cached = await ctx.cache.get<{ at: string; ids: string[] }>('kev');
     let data: { at: string; ids: string[] };
@@ -93,7 +93,7 @@ export async function enrich(findings: Finding[], ctx: ScanContext) {
     const aliases = [f.advisoryId, ...f.aliases];
     const value = aliases.map((a) => epss.get(a)).find(Boolean);
     f.exploit = {
-      kev: aliases.some((a) => kev.has(a)),
+      kev: kev ? aliases.some((a) => kev.has(a)) : undefined,
       ...(value ? { epss: value.epss, epssPercentile: value.percentile } : {}),
     };
   }

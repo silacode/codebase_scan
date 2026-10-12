@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY web ./web
+COPY src/contracts ./src/contracts
 RUN npm run build
 
 FROM node:24-alpine

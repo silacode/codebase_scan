@@ -57,13 +57,21 @@ export async function buildIssues(
     fix.baseCommand ??= fix.text;
     const max = group.map((f) => f.severity).sort((a, b) => weights[b] - weights[a])[0];
     const exploited = group.filter((f) => f.exploit?.kev).length;
-    const epss = Math.max(0, ...group.map((f) => f.exploit?.epss ?? 0));
+    const kevUnknown = group.some((f) => f.exploit?.kev == null);
+    const epss = group
+      .map((f) => f.exploit?.epss)
+      .filter((value): value is number => value != null);
+    const epssText = epss.length
+      ? `Highest available exploit probability ${Math.round(Math.max(...epss) * 100)}%`
+      : 'Exploit probability unavailable';
     const id =
       'ISS-' + createHash('sha256').update(key).digest('hex').slice(0, ISSUE_ID_HASH_LENGTH);
     const dependencyScope = (group[0].introducerDev ?? group[0].dev) ? 'development' : 'production';
-    const exploitText = exploited
-      ? `${exploited} known to be exploited`
-      : 'None is known to be exploited';
+    const exploitText = kevUnknown
+      ? exploited
+        ? `At least ${exploited} listed in CISA KEV (incomplete coverage)`
+        : 'Known exploitation status unavailable'
+      : `${exploited} listed in CISA KEV`;
     issues.push({
       id,
       title: `${direct}: ${group.length} vulnerable package${group.length === 1 ? '' : 's'}`,
@@ -82,7 +90,7 @@ export async function buildIssues(
       fixText: fix.text + (fix.note ? ` ${fix.note[0].toUpperCase() + fix.note.slice(1)}.` : ''),
       whyItMatters:
         `${group.length} known vulnerabilities, highest severity ${max}. ` +
-        `${exploitText}; highest exploit probability ${Math.round(epss * 100)}%. ` +
+        `${exploitText}. ${epssText}. ` +
         `${direct} is a ${dependencyScope} dependency of a ${repoType.replace('_', ' ')}. ` +
         `Impact: ${group[0].context?.impactClass ?? 'other'}.`,
       whySource: 'template',

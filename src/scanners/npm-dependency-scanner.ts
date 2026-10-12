@@ -352,7 +352,8 @@ export const npmDependencies: ScannerAdapter = {
             { timeoutMs: OSV_REQUEST_TIMEOUT_MS, signal: ctx.signal },
           ),
         );
-        if (!payload.success) throw Error('Invalid OSV batch response');
+        if (!payload.success || payload.data.results.length !== pending.length)
+          throw new Error('Invalid OSV batch response');
         const batch = payload.data;
         const ids = [...new Set(batch.results.flatMap((r) => r.vulns?.map((v) => v.id) ?? []))];
         // Advisory details, 10 at a time, cached for a day: OSV JSON is big and slow.
@@ -362,18 +363,17 @@ export const npmDependencies: ScannerAdapter = {
           ids.map((id) =>
             limit(async () => {
               const key = `osv:${id}`;
-              const cached = await ctx.cache.get<Vuln>(key);
-              // Skip advisories that fail validation, like missing details below.
-              const parsed = cached
-                ? { success: true as const, data: cached }
-                : osvVulnSchema.safeParse(
-                    await fetchJson<unknown>(
-                      `https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`,
-                      {},
-                      { timeoutMs: OSV_REQUEST_TIMEOUT_MS, signal: ctx.signal },
-                    ),
-                  );
-              if (!parsed.success) return;
+              const cached = await ctx.cache.get<unknown>(key);
+              const parsed = osvVulnSchema.safeParse(
+                cached ??
+                  (await fetchJson<unknown>(
+                    `https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`,
+                    {},
+                    { timeoutMs: OSV_REQUEST_TIMEOUT_MS, signal: ctx.signal },
+                  )),
+              );
+              if (!parsed.success || parsed.data.id !== id)
+                throw new Error(`Invalid OSV advisory ${id}`);
               details.set(id, parsed.data);
               await ctx.cache.set(key, parsed.data, OSV_ADVISORY_CACHE_TTL_MS);
             }),
@@ -383,7 +383,7 @@ export const npmDependencies: ScannerAdapter = {
           const { node, lockfile } = chunk[pending[index].i];
           for (const brief of result.vulns ?? []) {
             const vuln = details.get(brief.id);
-            if (!vuln) continue;
+            if (!vuln) throw new Error(`Missing OSV advisory ${brief.id}`);
             // OSV malicious-package advisories (MAL-) carry no severity; treat as critical.
             const malicious = vuln.id.startsWith('MAL-');
             const severity = malicious

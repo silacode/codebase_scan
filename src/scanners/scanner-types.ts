@@ -19,7 +19,7 @@ export interface Finding {
   fixedVersion?: string;
   cweIds: string[];
   references: string[];
-  exploit?: { kev: boolean; epss?: number; epssPercentile?: number };
+  exploit?: { kev?: boolean; epss?: number; epssPercentile?: number };
   context?: { impactClass: string; source: 'rules' | 'jev'; confidence?: number };
 }
 /** The DB-backed key/value cache adapters share. */

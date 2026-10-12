@@ -42,13 +42,13 @@ PostgreSQL holds application scans and pg-boss's own queue schema; completed rep
 - Optional credentials come from environment variables and are never included in logs.
 - No private repositories, authentication, or code execution are provided. This is a read-only **dependency** scan; it is not a sandbox suitable for executing arbitrary repositories.
 
-## Limits and design targets
+## Limits
 
 - GitHub metadata size limit is 1 GB; the extracted snapshot is bounded by 100,000 files and 2 GB.
 - Non-lockfiles over 5 MB and npm lockfiles over 20 MB are skipped and reported in coverage.
 - At most 20,000 packages per scan are examined; the body limit is 16 KB; a scan has a 300-second deadline.
 - Four worker slots and 32 queued jobs are defaults. With no token, GitHub's unauthenticated quota dominates.
-- The performance and capacity numbers in [the design requirements](DESIGN.md) and [visual design](design.html) are _targets_, not measured guarantees; no production load/chaos benchmark has been run for this v1.
+- No production load or chaos benchmark has been run for this version.
 
 ## Not in v1
 

@@ -82,11 +82,15 @@ test('AI validation rejects unknown, over-length and duplicate entries; accepts 
     cache,
   } satisfies ScanContext;
   try {
-    globalThis.fetch = async () =>
-      responsesPayload({
+    globalThis.fetch = async (_url, init) => {
+      const facts = JSON.parse(JSON.parse(String(init?.body)).input);
+      assert.equal(facts[0].packages[0].kev, null);
+      assert.equal(facts[0].packages[0].epss, null);
+      return responsesPayload({
         summary: 'AI summary',
         issues: [{ issueId: 'unknown', whyItMatters: 'bad' }],
       });
+    };
     const unknown = await explain(issues, 'template', ctx);
     assert.equal(unknown.ai.used, true);
     assert.equal(issues[0].whyItMatters, template);

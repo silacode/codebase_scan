@@ -35,7 +35,7 @@ export const config = {
 };
 
 // Bump SCANNER_VERSION when findings change shape — it keys result reuse.
-export const SCANNER_VERSION = '1.1.0';
+export const SCANNER_VERSION = '1.2.0';
 
 /** Give transient scan failures another chance without retrying indefinitely. */
 export const MAX_ATTEMPTS = 3;

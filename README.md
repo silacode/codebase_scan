@@ -8,6 +8,40 @@
 - Live progress over SSE; reports link the exact commit
 - Optional AI explanations and classification refinement — both degrade gracefully to templates/rules
 
+## Run
+
+Requires Node.js ≥ 22.18 and Docker with Compose.
+
+**API keys are recommended.** Copy `.env.example` to `.env` and configure:
+
+- `GITHUB_TOKEN` — higher GitHub API limits.
+- `OPENAI_API_KEY` — AI-generated explanations.
+- `TYPESAFE_API_KEY` — enhanced repository and vulnerability classification.
+
+Docker Compose loads these automatically. Without keys, scans still work with lower GitHub limits and template/rule-based fallbacks.
+
+**Start Docker first**, then run from the project root:
+
+```sh
+npm run start:docker
+```
+
+This builds the app, starts PostgreSQL, applies database migrations, and starts the API, worker, and UI. Open **<http://localhost:8080>**. No separate dependency installation or database setup is required.
+
+- Ports **8080** and **5433** must be available.
+- If Docker is missing or not running, the command fails with an error in the terminal.
+- Press **Ctrl+C** to stop. Saved reports remain in the database volume.
+
+## Demo
+
+1. Open <http://localhost:8080> and submit `https://github.com/OWASP/NodeGoat`.
+2. Follow live progress through dependency scanning, enrichment, and report generation.
+3. Review the ordered **Fix plan**, inspect the supporting **Evidence**, and check **Coverage** for missing data.
+
+A verified run produced a critical-risk report with 311 findings grouped into 26 issues. Results vary as the repository and advisory data change.
+
+![NodeGoat report showing prioritized fixes and supporting explanations](docs/screenshots/nodegoat-report.png)
+
 ## Architecture
 
 ```mermaid
@@ -59,13 +93,22 @@ flowchart TB
 - New API surface: a route plugin in `src/api/` plus a Zod schema; new UI screen under `web/src/features/`.
 - Swap a provider (classifier, explainer): replace the `src/analysis/` module behind its function boundary.
 
-## Run it
+## Key trade-offs
 
-- `docker compose up --build` → <http://localhost:8080> (Postgres on 5433)
-- Dev: `docker compose up -d db`, `npm install`, then `npm run dev` + `npm run dev:web` (UI on :5174)
-- Needs Docker and Node ≥ 22.18; no tokens required (60 GitHub req/h without one)
+- **Public GitHub + npm only:** Keeps the flow focused and avoids authentication and multi-ecosystem complexity. Private repositories and other lockfile formats are out of scope.
+- **Durable jobs:** PostgreSQL and pg-boss preserve work across restarts and make scan creation/enqueue atomic, at the cost of requiring a database.
+- **Optional AI:** Adds explanations and context refinement, with latency and provider costs. Templates and rules keep scans useful without keys or during outages; AI does not generate scanner findings or fix commands.
+
+## Future improvements
+
+- **Observability:** Add distributed tracing and alerts for queue age, stage failures, and provider latency.
+- **Evals:** Maintain a versioned benchmark for finding accuracy, prioritization, and AI explanation factuality.
+- **Concurrency:** Enforce global and per-client admission limits atomically across API instances.
+- **Scaling:** Load-test independent API/worker scaling; tune database pools and upstream rate-limit budgets.
 
 ## Develop
+
+Local development: `docker compose up -d db`, `npm ci`, then `npm run dev` and `npm run dev:web` in separate terminals (UI on <http://localhost:5174>).
 
 - `npm test` · `npm run typecheck` · `npm run format:check`
 - `npm run build`, then `npm run test:integration` (needs `db` up)
@@ -75,5 +118,4 @@ flowchart TB
 
 - [How scanning and ranking work](docs/SCANNING.md) — pipeline, scoring formula, fix ladder
 - [Operations](docs/OPERATIONS.md) — env vars, queue/roles, idempotency, limits, security model
-- [Contributing](docs/CONTRIBUTING.md) — tests, module map, conventions
-- [Product contract](docs/DESIGN.md) / [visual design](docs/design.html) — requirements and targets
+- [How I used coding agents](docs/AGENT_USAGES.md) — planning, implementation, and iterative review

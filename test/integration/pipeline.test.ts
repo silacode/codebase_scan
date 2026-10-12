@@ -4,7 +4,16 @@ import { writeFile, mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import * as tar from 'tar';
-import { pool, boss, SCAN_QUEUE, startWorker, waitFor, processScan } from '../helpers/database.ts';
+import {
+  pool,
+  boss,
+  SCAN_QUEUE,
+  FINALIZE_QUEUE,
+  startWorker,
+  startFinalizer,
+  waitFor,
+  processScan,
+} from '../helpers/database.ts';
 import { post, base } from '../helpers/api.ts';
 import { stub, sha, folder } from '../helpers/fixtures.ts';
 
@@ -21,6 +30,27 @@ test('full stubbed pipeline completes, stores Issues/findings, reports AI fallba
   assert.ok((await pool.query('SELECT 1 FROM findings')).rowCount);
   const findings = await (await fetch(`${base}/api/scans/${s.id}/findings?limit=10`)).json();
   assert.ok(findings.total >= 2);
+});
+
+test('malformed OSV advisory data fails the scan instead of publishing a clean report', async () => {
+  const original = globalThis.fetch;
+  const finalizer = await startFinalizer();
+  const worker = await startWorker();
+  globalThis.fetch = async (url, init) =>
+    String(url).includes('api.osv.dev/v1/vulns/')
+      ? Response.json({ id: 'GHSA-TEST', aliases: null })
+      : stub(url, init);
+  try {
+    const created = await post('invalid-advisory', 'invalid-advisory');
+    await waitFor(created.body.id, 'failed', 30000);
+    const scan = await (await fetch(`${base}/api/scans/${created.body.id}`)).json();
+    assert.equal(scan.error.code, 'SCAN_FAILED');
+    assert.equal(scan.report, null);
+  } finally {
+    await boss.offWork(SCAN_QUEUE, { id: worker });
+    await boss.offWork(FINALIZE_QUEUE, { id: finalizer });
+    globalThis.fetch = original;
+  }
 });
 
 test('independent projects share an action step with root-runnable commands', async () => {

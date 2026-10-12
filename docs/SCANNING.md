@@ -10,7 +10,8 @@
 - Issues group findings by direct dependency, choosing a production direct dependency ahead of a development one when both introduce the same package (then the shorter path, then name).
 - Fix candidates are chosen, priority is computed, optional OpenAI explains, and the report and evidence are published atomically.
 - Progress stages are `fetch → scan_dependencies → enrich → classify → prioritize → explain → publish`.
-- Optional upstream failures leave a warning and template/rules fallback.
+- Optional upstream failures leave a warning and template/rules fallback. Missing KEV/EPSS values remain unknown, not false or zero, in reports and AI input.
+- Invalid or incomplete OSV responses fail dependency scanning through the existing bounded retry flow; they never silently remove findings.
 
 To add an adapter, implement `ScannerAdapter` in `src/scanners/scanner-types.ts` and register it in `src/scanners/scanner-registry.ts`. The context grants only the downloaded workspace, repo metadata, cancellation signal, progress callback, and cache. An adapter returns normalized findings, stats, and explicit coverage; the pipeline does not need to change.
 
@@ -41,4 +42,4 @@ Issue priority is **highest finding score + min(0.5 × highest finding score, 0.
 - Commands are copyable from the repository root: `--prefix` selects a nested project and `-w` selects a declaring workspace for installs; lockfile refreshes use `--prefix` without `-w`.
 - Folder and package arguments are shell-quoted, and invalid npm package names never produce a command.
 - Override snippets name the project `package.json` to edit.
-- Scanner version `1.1.0` changes the scan cache key so earlier reports remain available without being reused.
+- Scanner version `1.2.0` changes scan and explanation cache keys so earlier reports remain available without being reused; rescan to refresh their content.

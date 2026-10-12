@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { config, AI_TOP_ISSUES } from '../config.ts';
+import { config, AI_TOP_ISSUES, SCANNER_VERSION } from '../config.ts';
 import type { Issue } from '../reports/issue-types.ts';
 import type { ScanContext } from '../scanners/scanner-types.ts';
 
@@ -53,8 +53,8 @@ export async function explain(issues: Issue[], summary: string, ctx: ScanContext
       name: f.package,
       version: f.version,
       severity: f.severity,
-      kev: !!f.exploit?.kev,
-      epss: f.exploit?.epss,
+      kev: f.exploit?.kev ?? null,
+      epss: f.exploit?.epss ?? null,
       dev: f.dev,
       direct: f.direct,
       impact: f.context?.impactClass,
@@ -66,7 +66,7 @@ export async function explain(issues: Issue[], summary: string, ctx: ScanContext
   const key =
     'ai:' +
     createHash('sha256')
-      .update(config.openaiModel + input)
+      .update(SCANNER_VERSION + config.openaiModel + input)
       .digest('hex');
   try {
     const cached = await ctx.cache.get<unknown>(key);
@@ -81,7 +81,7 @@ export async function explain(issues: Issue[], summary: string, ctx: ScanContext
         {
           model: config.openaiModel,
           instructions:
-            'Explain only the given facts; do not add vulnerabilities, versions, or commands. Use plain language.',
+            'Explain only the given facts; do not add vulnerabilities, versions, or commands. Null exploit data is unknown, not zero or false. KEV false means not listed, not proof of no exploitation. Use plain language.',
           input,
           text: { format: zodTextFormat(aiOutputSchema, 'scan_explanation') },
         },

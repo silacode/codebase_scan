@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { buildIssues } from '../../src/reports/issue-builder.ts';
+import { enrich } from '../../src/analysis/finding-enrichment.ts';
 import { fixIssue, isNpmName, shellArg } from '../../src/reports/remediation-planner.ts';
 import { score } from '../../src/reports/issue-scoring.ts';
 import { verdict, buildReport } from '../../src/reports/report-builder.ts';
@@ -501,6 +502,53 @@ test('different override snippets remain separate action steps', async () => {
     globalThis.fetch = original;
   }
 });
+test('reports distinguish unavailable exploit data from checked negatives and genuine zero EPSS', async () => {
+  const original = globalThis.fetch;
+  const context = {
+    ...ctx,
+    workspaceDir: '',
+    progress: async () => {},
+    repo: { owner: 'a', repo: 'b', commitSha: 'a'.repeat(40) },
+  };
+  try {
+    for (const available of [false, true]) {
+      globalThis.fetch = async (url) =>
+        !available
+          ? new Response('', { status: 400 })
+          : Response.json(
+              String(url).includes('www.cisa.gov')
+                ? { vulnerabilities: [] }
+                : { data: [{ cve: 'CVE-2020-1111', epss: '0', percentile: '0' }] },
+            );
+      const { findings } = await enrich([f({ aliases: ['CVE-2020-1111'] })], context);
+      assert.equal(findings[0].exploit?.kev, available ? false : undefined);
+      assert.equal(findings[0].exploit?.epss, available ? 0 : undefined);
+      const issues = await buildIssues(findings, 'library', ctx);
+      const report = verdict(findings, issues);
+      if (available) {
+        assert.match(issues[0].whyItMatters, /exploit probability 0%/);
+        assert.match(report.headline, /0 listed in CISA KEV/);
+      } else {
+        assert.match(issues[0].whyItMatters, /Exploit probability unavailable/);
+        for (const text of [issues[0].whyItMatters, report.headline, report.summary]) {
+          assert.match(text, /Known exploitation status unavailable/);
+          assert.doesNotMatch(text, /0%|0 listed|None is known/);
+        }
+      }
+    }
+    const mixed = [
+      f({ exploit: undefined }),
+      f({ id: 'confirmed', exploit: { kev: true, epss: 0.4 } }),
+    ];
+    const issues = await buildIssues(mixed, 'library', ctx);
+    assert.match(issues[0].whyItMatters, /At least 1 listed in CISA KEV \(incomplete coverage\)/);
+    assert.match(issues[0].whyItMatters, /Highest available exploit probability 40%/);
+    assert.match(verdict(mixed, issues).headline, /incomplete coverage/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test('scoring, deterministic order, verdict; KEV raises and dev lowers', async () => {
   const base = f(),
     kev = f({
